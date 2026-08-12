@@ -1,0 +1,10 @@
+serviceName: reports-service
+image:
+  repository: CHANGE_ME.dkr.ecr.region.amazonaws.com/reports-service
+  tag: CHANGE_ME
+containerPort: 8083
+env:
+  SERVER_PORT: "8083"
+  AUTH_SERVICE_JWK_URI: "https://auth.internal.example.com/.well-known/jwks.json"
+envFromSecretRefs:
+  - name: reports-service-db-credentials

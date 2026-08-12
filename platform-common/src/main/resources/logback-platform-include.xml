@@ -1,0 +1,19 @@
+<!--
+  Structured JSON logging shipped to the existing ELK stack (Doc 2 sec 1.1 / sec 4).
+  Include this from each service's logback-spring.xml:
+
+    <include resource="logback-platform-include.xml"/>
+
+  Every log line carries tenantId (TenantResolverFilter) and traceId (CorrelationIdFilter)
+  from the MDC automatically, so Kibana can filter/aggregate by operator or by request without
+  any per-service logging code.
+-->
+<included>
+    <appender name="JSON_STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdcKeyName>tenantId</includeMdcKeyName>
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <customFields>{"service":"${spring.application.name:-unknown-service}"}</customFields>
+        </encoder>
+    </appender>
+</included>

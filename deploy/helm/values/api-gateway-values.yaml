@@ -1,0 +1,17 @@
+serviceName: api-gateway
+image:
+  repository: CHANGE_ME.dkr.ecr.region.amazonaws.com/api-gateway
+  tag: CHANGE_ME
+containerPort: 8080
+replicaCount: 3
+autoscaling:
+  minReplicas: 3
+  maxReplicas: 20
+env:
+  SERVER_PORT: "8080"
+  CONFIG_SERVICE_URI: "http://config-tenant-service:8081"
+  LOYALTY_SERVICE_URI: "http://loyalty-service:8082"
+  REPORTS_SERVICE_URI: "http://reports-service:8083"
+  NOTIFICATION_SERVICE_URI: "http://notification-service:8084"
+  CONTENT_SERVICE_URI: "http://content-service:8085"
+  LEGACY_PHP_BASE_URL: "http://legacy-php.internal" # CHANGE_ME per operator until fully migrated

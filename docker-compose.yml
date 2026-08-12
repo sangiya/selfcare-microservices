@@ -1,0 +1,196 @@
+# Local dev stack: everything the services need to run standalone (Doc 5 sec 5's "reused"
+# column, minus the real EKS/production instances). NOT for production use.
+#
+#   docker compose up -d           # infra only
+#   docker compose --profile app up -d --build   # infra + all services
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: localdev-root
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./deploy/local/init-mysql.sql:/docker-entrypoint-initdb.d/init-mysql.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  kafka:
+    image: bitnamilegacy/kafka:3.7
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_CFG_NODE_ID: "0"
+      KAFKA_CFG_PROCESS_ROLES: "controller,broker"
+      KAFKA_CFG_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
+      KAFKA_CFG_ADVERTISED_LISTENERS: "PLAINTEXT://localhost:9092"
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "0@kafka:9093"
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+
+  unleash-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: unleash
+      POSTGRES_USER: unleash
+      POSTGRES_PASSWORD: localdev
+    volumes:
+      - unleash-db-data:/var/lib/postgresql/data
+
+  unleash:
+    image: unleashorg/unleash-server:5
+    depends_on:
+      - unleash-db
+    ports:
+      - "4242:4242"
+    environment:
+      DATABASE_URL: "postgres://unleash:localdev@unleash-db:5432/unleash"
+      DATABASE_SSL: "false"
+      INIT_ADMIN_API_TOKENS: "*:*.local-dev-admin-token"
+
+  # Stands in for the MIFE Star Points core, which has no non-production instance reachable
+  # from a dev machine. Stubs live in deploy/local/wiremock/mappings and cover every endpoint
+  # MifeLoyaltyCoreAdapter calls; all of them answer with the success status the adapter
+  # expects. Hit http://localhost:8089/__admin/requests to inspect what the service sent.
+  wiremock-mife:
+    image: wiremock/wiremock:3.9.1
+    command: ["--verbose", "--disable-banner"]
+    ports:
+      - "8089:8080"
+    volumes:
+      - ./deploy/local/wiremock/mappings:/home/wiremock/mappings:ro
+
+  # --- application services (build from source; opt in with --profile app) ---
+
+  config-tenant-service:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: config-tenant-service/Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      MONGODB_URI: "mongodb://mongo:27017/selfcare_config"
+      REDIS_HOST: redis
+      UNLEASH_API_URL: "http://unleash:4242/api"
+    depends_on:
+      - mongo
+      - redis
+
+  loyalty-service:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: loyalty-service/Dockerfile
+    ports:
+      - "8082:8082"
+    environment:
+      DB_URL: "jdbc:mysql://mysql:3306/loyalty_service"
+      DB_USERNAME: loyalty_service
+      DB_PASSWORD: localdev
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      UNLEASH_API_URL: "http://unleash:4242/api"
+      MIFE_BASE_URL: "http://wiremock-mife:8080"
+      # The adapter builds its request maps with Map.of, which rejects nulls -- these must be
+      # non-empty even against the stub. Fake credentials; the stubs don't check them.
+      MIFE_SP_COUNTER_DTL_ALIAS: "mock-balance-counter"
+      MIFE_SP_COUNTER_DTL_PASS: "mock-balance-auth"
+      MIFE_SP_COUNTER_TRANSFER_ALIAS: "mock-transfer-counter"
+      MIFE_SP_COUNTER_TRANSFER_PASS: "mock-transfer-auth"
+      MIFE_SP_COUNTER_DONATE_ALIAS: "mock-donate-counter"
+      MIFE_SP_COUNTER_DONATE_PASS: "mock-donate-auth"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      wiremock-mife:
+        condition: service_started
+
+  reports-service:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: reports-service/Dockerfile
+    ports:
+      - "8083:8083"
+    environment:
+      DB_URL: "jdbc:mysql://mysql:3306/reports_service"
+      DB_USERNAME: reports_service
+      DB_PASSWORD: localdev
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  notification-service:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: notification-service/Dockerfile
+    ports:
+      - "8084:8084"
+    environment:
+      DB_URL: "jdbc:mysql://mysql:3306/notification_service"
+      DB_USERNAME: notification_service
+      DB_PASSWORD: localdev
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+
+  content-service:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: content-service/Dockerfile
+    ports:
+      - "8085:8085"
+    environment:
+      MONGODB_URI: "mongodb://mongo:27017/content_service"
+    depends_on:
+      - mongo
+
+  api-gateway:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      CONFIG_SERVICE_URI: "http://config-tenant-service:8081"
+      LOYALTY_SERVICE_URI: "http://loyalty-service:8082"
+      REPORTS_SERVICE_URI: "http://reports-service:8083"
+      NOTIFICATION_SERVICE_URI: "http://notification-service:8084"
+      CONTENT_SERVICE_URI: "http://content-service:8085"
+      LEGACY_PHP_BASE_URL: "http://host.docker.internal:80"
+    depends_on:
+      - config-tenant-service
+      - loyalty-service
+      - reports-service
+      - notification-service
+      - content-service
+
+volumes:
+  mysql-data:
+  mongo-data:
+  unleash-db-data:

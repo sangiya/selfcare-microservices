@@ -1,0 +1,3 @@
+com.selfcare.platform.common.config.PlatformAutoConfiguration
+com.selfcare.platform.common.security.ResourceServerSecurityConfig
+com.selfcare.platform.common.web.GlobalExceptionHandler

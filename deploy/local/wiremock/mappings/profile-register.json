@@ -1,0 +1,19 @@
+{
+  "name": "MIFE profileRegisterRequest - success, PIN sent",
+  "request": {
+    "method": "PUT",
+    "urlPath": "/apicall/starPointsAPI/profileRegisterRequest/1.0"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "status": 0,
+      "errorDesc": "",
+      "pinAvailable": true,
+      "transactionNumber": "MOCK-REG-0000001"
+    }
+  }
+}

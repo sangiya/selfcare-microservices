@@ -1,0 +1,48 @@
+# Local Jenkins, kept in its own compose file so it's opt-in and doesn't interfere with
+# docker-compose.yml (the app stack). Bring it up separately, once the app stack already
+# works:
+#
+#   docker compose -f docker-compose.jenkins.yml up -d --build          # Jenkins only
+#   docker compose -f docker-compose.jenkins.yml --profile sonar up -d --build   # + local SonarQube
+#
+# Jenkins UI: http://localhost:9090  (not 8080 -- that's already api-gateway in the app stack)
+services:
+  jenkins:
+    build:
+      context: ./ci/jenkins
+    # Running the controller as root and giving it the host's docker.sock is a
+    # local/throwaway-only shortcut so it can run `docker build`/`docker push` steps without
+    # fighting docker.sock group-ownership differences across OSes. A real org Jenkins never
+    # does this -- it uses proper Docker-capable build agents instead (Doc 2 sec 3.8).
+    user: root
+    ports:
+      - "9090:8080"
+      - "50000:50000" # only needed if you later attach remote agents
+    volumes:
+      - jenkins-home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Read-only mount of this repo so Jenkins jobs/shared-library config can point at
+      # file:///workspace/microservices instead of needing a real git remote.
+      - .:/workspace/microservices:ro
+
+  # Optional: a local SonarQube so the Jenkinsfile's "Code Quality" / "Quality Gate" stages
+  # have something to actually talk to. Skip this at first if you just want to see the
+  # pipeline run -- those two stages will simply fail until this (or a real SonarQube) exists
+  # and is wired up in Jenkins (Manage Jenkins > System > SonarQube servers).
+  sonarqube:
+    profiles: ["sonar"]
+    image: sonarqube:community
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true" # local dev only; a real instance should tune the host instead
+    volumes:
+      - sonarqube-data:/opt/sonarqube/data
+      - sonarqube-extensions:/opt/sonarqube/extensions
+      - sonarqube-logs:/opt/sonarqube/logs
+
+volumes:
+  jenkins-home:
+  sonarqube-data:
+  sonarqube-extensions:
+  sonarqube-logs:

@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.selfcare.platform</groupId>
+  <artifactId>selfcare-platform</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>Selfcare Platform - Reusable Microservices Monorepo</name>
+  <description>
+    Reference implementation of the target architecture in Doc 1 (Master Architecture) and
+    Doc 5 (90-Day Pilot): a shared multi-tenant platform library plus the four 90-day pilot
+    microservices, built once and deployed independently per operator.
+  </description>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.3.4</version>
+    <relativePath/>
+  </parent>
+
+  <modules>
+    <module>platform-common</module>
+    <module>config-tenant-service</module>
+    <module>api-gateway</module>
+    <module>loyalty-service</module>
+    <module>reports-service</module>
+    <module>notification-service</module>
+    <module>content-service</module>
+  </modules>
+
+  <properties>
+    <java.version>21</java.version>
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <spring-cloud.version>2023.0.3</spring-cloud.version>
+    <lombok.version>1.18.34</lombok.version>
+    <mapstruct.version>1.6.2</mapstruct.version>
+    <testcontainers.version>1.20.1</testcontainers.version>
+    <springdoc.version>2.6.0</springdoc.version>
+    <unleash-client.version>9.2.5</unleash-client.version>
+    <jacoco.version>0.8.12</jacoco.version>
+    <sonar.coverage.jacoco.xmlReportPaths>${project.basedir}/../target/site/jacoco-aggregate/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+    <sonar.exclusions>**/dto/**,**/domain/**,**/*Application.java</sonar.exclusions>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-dependencies</artifactId>
+        <version>${spring-cloud.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>testcontainers-bom</artifactId>
+        <version>${testcontainers.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.selfcare.platform</groupId>
+        <artifactId>platform-common</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.getunleash</groupId>
+        <artifactId>unleash-client-java</artifactId>
+        <version>${unleash-client.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.springdoc</groupId>
+        <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        <version>${springdoc.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <!-- Every module gets these -->
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <configuration>
+            <annotationProcessorPaths>
+              <path>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
+              </path>
+            </annotationProcessorPaths>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.jacoco</groupId>
+          <artifactId>jacoco-maven-plugin</artifactId>
+          <version>${jacoco.version}</version>
+          <executions>
+            <execution>
+              <id>prepare-agent</id>
+              <goals><goal>prepare-agent</goal></goals>
+            </execution>
+            <execution>
+              <id>report</id>
+              <phase>test</phase>
+              <goals><goal>report</goal></goals>
+            </execution>
+            <execution>
+              <id>jacoco-check</id>
+              <goals><goal>check</goal></goals>
+              <configuration>
+                <rules>
+                  <rule>
+                    <element>BUNDLE</element>
+                    <limits>
+                      <!-- Doc 2 sec 3.3: MR gated on a minimum coverage threshold -->
+                      <limit>
+                        <counter>LINE</counter>
+                        <value>COVEREDRATIO</value>
+                        <minimum>0.60</minimum>
+                      </limit>
+                    </limits>
+                  </rule>
+                </rules>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+    <plugins>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

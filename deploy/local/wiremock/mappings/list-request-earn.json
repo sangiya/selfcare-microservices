@@ -1,0 +1,42 @@
+{
+  "name": "MIFE listRequest - EARN transactions",
+  "request": {
+    "method": "POST",
+    "urlPath": "/apicall/StarpointLoyalitySystem/listRequest/1.0",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$[?(@.transactionType == 'EARN')]"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "status": 0,
+      "errorDesc": "",
+      "transactionDetails": [
+        {
+          "transactionSerial": "MOCK-EARN-0000001",
+          "merchant": "Keells Super - Colombo 03",
+          "amount": 450.00,
+          "txDate": "2026-08-09 18:42:11"
+        },
+        {
+          "transactionSerial": "MOCK-EARN-0000002",
+          "merchant": "Fuel Station - Nugegoda",
+          "amount": 1200.00,
+          "txDate": "2026-08-04 09:15:03"
+        },
+        {
+          "transactionSerial": "MOCK-EARN-0000003",
+          "merchant": "Monthly Bill Payment",
+          "amount": 300.00,
+          "txDate": "2026-07-28 00:05:47"
+        }
+      ]
+    }
+  }
+}

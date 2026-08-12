@@ -1,0 +1,15 @@
+serviceName: loyalty-service
+image:
+  repository: CHANGE_ME.dkr.ecr.region.amazonaws.com/loyalty-service
+  tag: CHANGE_ME # set by CI to the built image tag (Doc 2 sec 3.9 promotion flow)
+containerPort: 8082
+replicaCount: 2
+env:
+  SERVER_PORT: "8082"
+  AUTH_SERVICE_JWK_URI: "https://auth.internal.example.com/.well-known/jwks.json"
+  UNLEASH_API_URL: "http://unleash.platform.svc.cluster.local:4242/api"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka.platform.svc.cluster.local:9092"
+  MIFE_BASE_URL: "https://mife.internal.example.com"
+envFromSecretRefs:
+  - name: loyalty-service-db-credentials    # DB_URL, DB_USERNAME, DB_PASSWORD
+  - name: loyalty-service-mife-credentials  # MIFE_SP_COUNTER_*_ALIAS / _PASS

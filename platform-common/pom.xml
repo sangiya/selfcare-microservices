@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.selfcare.platform</groupId>
+    <artifactId>selfcare-platform</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>platform-common</artifactId>
+  <packaging>jar</packaging>
+  <name>platform-common</name>
+  <description>
+    Shared Spring Boot starter used by every microservice: tenant resolution, the API
+    Adapter Registry (Doc 1 sec 6.3), feature-flag client (Unleash), standard error
+    envelope/exception handling, correlation-id propagation, and JWT resource-server
+    security config. Every new service depends on this instead of re-implementing
+    cross-cutting concerns.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-tracing-bridge-otel</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-exporter-otlp</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.getunleash</groupId>
+      <artifactId>unleash-client-java</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>net.logstash.logback</groupId>
+      <artifactId>logstash-logback-encoder</artifactId>
+      <version>8.0</version>
+    </dependency>
+  </dependencies>
+</project>
