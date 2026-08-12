@@ -1,0 +1,18 @@
+{
+  "name": "MIFE transferStarPoints - success",
+  "request": {
+    "method": "POST",
+    "urlPath": "/apicall/starPointsAPI/transferStarPoints/1.0"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "statusCode": 0,
+      "errorDescription": "",
+      "transactionNumber": "MOCK-TRF-0000001"
+    }
+  }
+}

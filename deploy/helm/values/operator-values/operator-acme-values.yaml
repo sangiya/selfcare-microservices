@@ -1,0 +1,28 @@
+# Example per-operator overlay (Doc 1 sec 5 step 2: "create a new values overlay in the GitOps
+# config repo"). Applied ON TOP of a per-service values file, e.g.:
+#
+#   helm upgrade --install loyalty-service ./deploy/helm/microservice-chart \
+#     -f deploy/helm/values/loyalty-service-values.yaml \
+#     -f deploy/helm/values/operator-values/operator-acme-values.yaml \
+#     --namespace acme-telecom --kube-context acme-telecom-cluster
+#
+# Everything below is what actually changes per operator -- image tag/repository, resource
+# sizing, and Kafka/Jenkins pipeline stay identical (Doc 1 sec 3 principle 4: "build once,
+# deploy independently per operator"). This one file is ArgoCD's per-operator ApplicationSet
+# input (Doc 2 sec 3.9) once GitOps is introduced.
+
+env:
+  TENANT_ID: "acme-telecom"
+  AUTH_SERVICE_JWK_URI: "https://auth.acme-telecom.example.com/.well-known/jwks.json"
+  UNLEASH_API_URL: "http://unleash.acme-telecom-platform.svc.cluster.local:4242/api"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka.acme-telecom-platform.svc.cluster.local:9092"
+
+# This operator's cluster is smaller -- override the shared defaults.
+replicaCount: 1
+autoscaling:
+  minReplicas: 1
+  maxReplicas: 4
+
+envFromSecretRefs:
+  - name: loyalty-service-db-credentials-acme
+  - name: loyalty-service-mife-credentials-acme

@@ -1,0 +1,18 @@
+{
+  "name": "MIFE starpointDonate - success",
+  "request": {
+    "method": "POST",
+    "urlPath": "/apicall/starPointsAPI/starpointDonate/1.0"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "statusCode": 0,
+      "errorDescription": "",
+      "transactionNumber": "MOCK-DON-0000001"
+    }
+  }
+}

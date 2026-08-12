@@ -1,0 +1,10 @@
+serviceName: content-service
+image:
+  repository: CHANGE_ME.dkr.ecr.region.amazonaws.com/content-service
+  tag: CHANGE_ME
+containerPort: 8085
+env:
+  SERVER_PORT: "8085"
+  AUTH_SERVICE_JWK_URI: "https://auth.internal.example.com/.well-known/jwks.json"
+envFromSecretRefs:
+  - name: content-service-mongo-credentials

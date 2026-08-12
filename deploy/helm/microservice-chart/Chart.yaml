@@ -1,0 +1,10 @@
+apiVersion: v2
+name: microservice-chart
+description: >
+  Generic chart for every Java microservice in this repo (Doc 2 sec 3.9). One chart, N
+  per-service values files (deploy/helm/values/*.yaml), N per-operator overlays
+  (deploy/helm/values/operator-values/*.yaml) -- this is what "build once, deploy
+  independently per operator" (Doc 1 sec 5) looks like in Helm.
+type: application
+version: 1.0.0
+appVersion: "1.0.0"

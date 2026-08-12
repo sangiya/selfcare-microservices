@@ -1,0 +1,12 @@
+serviceName: config-tenant-service
+image:
+  repository: CHANGE_ME.dkr.ecr.region.amazonaws.com/config-tenant-service
+  tag: CHANGE_ME
+containerPort: 8081
+replicaCount: 2
+env:
+  SERVER_PORT: "8081"
+  AUTH_SERVICE_JWK_URI: "https://auth.internal.example.com/.well-known/jwks.json"
+envFromSecretRefs:
+  - name: config-tenant-service-mongo-credentials # MONGODB_URI
+  - name: config-tenant-service-redis-credentials  # REDIS_HOST, REDIS_PORT

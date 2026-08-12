@@ -1,0 +1,36 @@
+{
+  "name": "MIFE listRequest - BURN transactions",
+  "request": {
+    "method": "POST",
+    "urlPath": "/apicall/StarpointLoyalitySystem/listRequest/1.0",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$[?(@.transactionType == 'BURN')]"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "status": 0,
+      "errorDesc": "",
+      "transactionDetails": [
+        {
+          "transactionSerial": "MOCK-BURN-0000001",
+          "merchant": "Cinema Ticket Redemption",
+          "amount": 2000.00,
+          "txDate": "2026-08-07 20:11:56"
+        },
+        {
+          "transactionSerial": "MOCK-BURN-0000002",
+          "merchant": "Data Bundle Redemption",
+          "amount": 500.00,
+          "txDate": "2026-07-30 12:33:20"
+        }
+      ]
+    }
+  }
+}

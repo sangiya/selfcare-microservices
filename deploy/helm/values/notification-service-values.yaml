@@ -1,0 +1,11 @@
+serviceName: notification-service
+image:
+  repository: CHANGE_ME.dkr.ecr.region.amazonaws.com/notification-service
+  tag: CHANGE_ME
+containerPort: 8084
+env:
+  SERVER_PORT: "8084"
+  AUTH_SERVICE_JWK_URI: "https://auth.internal.example.com/.well-known/jwks.json"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka.platform.svc.cluster.local:9092"
+envFromSecretRefs:
+  - name: notification-service-db-credentials

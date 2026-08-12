@@ -1,0 +1,49 @@
+# Base defaults every service/operator overlay overrides selectively.
+# Precedence (highest wins): operator-values/<operator>.yaml > values/<service>.yaml > this file.
+#   helm upgrade --install loyalty-service ./microservice-chart \
+#     -f ../values/loyalty-service-values.yaml \
+#     -f ../values/operator-values/operator-acme-values.yaml \
+#     --namespace acme-telecom
+
+serviceName: CHANGE_ME
+image:
+  repository: CHANGE_ME
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 384Mi
+  limits:
+    cpu: "1"
+    memory: 768Mi
+
+containerPort: 8080
+
+env: {}
+# TENANT_ID, DB_URL, DB_USERNAME, KAFKA_BOOTSTRAP_SERVERS, etc. -- set per service/operator.
+
+envFromSecretRefs: []
+# - name: loyalty-service-db-credentials
+# - name: loyalty-service-mife-credentials
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+probes:
+  livenessPath: /actuator/health/liveness
+  readinessPath: /actuator/health/readiness
+
+serviceMonitor:
+  enabled: true
+  path: /actuator/prometheus
+  interval: 30s
+
+podAnnotations: {}
+labels: {}

@@ -1,0 +1,19 @@
+{
+  "name": "MIFE balanceCheck - success",
+  "request": {
+    "method": "POST",
+    "urlPath": "/apicall/starPointsAPI/balanceCheck/1.0"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "status": 0,
+      "errorDesc": "",
+      "currentBalance": 12500.00,
+      "redeemableBalance": 10000.00
+    }
+  }
+}
