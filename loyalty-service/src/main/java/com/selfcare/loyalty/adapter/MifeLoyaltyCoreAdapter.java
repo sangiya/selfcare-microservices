@@ -163,7 +163,7 @@ public class MifeLoyaltyCoreAdapter implements LoyaltyCoreAdapter {
                         String.valueOf(d.get("transactionSerial")),
                         transactionType,
                         String.valueOf(d.get("merchant")),
-                        asDecimal(d.get("amount")),
+                        asDecimal(d.get(AMOUNT)),
                         String.valueOf(d.get("txDate"))))
                 .toList();
     }
