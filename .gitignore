@@ -20,3 +20,4 @@ allure-results/
 qa-automation/performance/results/
 
 .DS_Store
+.env

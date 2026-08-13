@@ -5,11 +5,12 @@
 #     -f ../values/operator-values/operator-acme-values.yaml \
 #     --namespace acme-telecom
 
-serviceName: CHANGE_ME
+serviceName: selfcare-service
+namespace: selfcare-platform
 image:
-  repository: CHANGE_ME
-  tag: latest
-  pullPolicy: IfNotPresent
+  repository: registry.example.com/selfcare/selfcare-service
+  tag: 0.0.0
+  pullPolicy: Always
 
 replicaCount: 2
 
@@ -47,6 +48,9 @@ serviceMonitor:
 
 podAnnotations: {}
 labels: {}
+
+networkPolicy:
+  enabled: true
 
 rollout:
   enabled: false

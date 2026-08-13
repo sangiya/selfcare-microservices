@@ -2,6 +2,14 @@
 {{ .Values.serviceName }}
 {{- end -}}
 
+{{- define "microservice-chart.namespace" -}}
+{{- if eq .Release.Namespace "default" -}}
+{{ .Values.namespace }}
+{{- else -}}
+{{ .Release.Namespace }}
+{{- end -}}
+{{- end -}}
+
 {{- define "microservice-chart.labels" -}}
 app.kubernetes.io/name: {{ .Values.serviceName }}
 app.kubernetes.io/part-of: selfcare-platform
