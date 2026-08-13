@@ -7,8 +7,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.oauth2.server.resource.OAuth2ResourceServerConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
@@ -56,7 +56,7 @@ public class ResourceServerSecurityConfig {
                             .requestMatchers("/actuator/health/**", "/actuator/prometheus", "/actuator/info").permitAll()
                             .requestMatchers("/v3/api-docs/**", "/swagger-ui/**").permitAll()
                             .anyRequest().authenticated())
-                    .oauth2ResourceServer(OAuth2ResourceServerConfigurer::jwt);
+                    .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
             return http.build();
         }
 

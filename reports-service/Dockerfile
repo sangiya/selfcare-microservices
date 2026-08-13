@@ -1,7 +1,7 @@
 # Build context must be the repo root:
 #   docker build -f reports-service/Dockerfile -t reports-service:local .
 
-FROM maven:3.9.8-eclipse-temurin-21 AS build
+FROM maven:3.9.11-eclipse-temurin-25 AS build
 WORKDIR /workspace
 COPY pom.xml .
 COPY platform-common platform-common
@@ -17,7 +17,7 @@ COPY content-service content-service
 RUN --mount=type=cache,target=/root/.m2 \
     mvn -q -pl platform-common,reports-service -am -DskipTests package
 
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:25-jre-jammy
 RUN useradd --system --uid 10001 appuser
 WORKDIR /app
 COPY --from=build /workspace/reports-service/target/reports-service-*.jar app.jar
