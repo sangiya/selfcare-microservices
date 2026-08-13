@@ -57,10 +57,9 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Configuration as Code: everything from node label to credentials to the shared library
-# to the pipeline job itself, applied automatically on startup -- no manual setup-wizard
-# clicking required. See casc.yaml for what's actually configured and why SonarQube server
-# registration is the one deliberate exception. ---
+# --- Configuration as Code + init scripts: everything from node label to credentials to the
+# shared library to the pipeline job itself, plus SonarQube server registration, applied
+# automatically on startup -- no manual setup-wizard clicking required. ---
 ENV CASC_JENKINS_CONFIG=/usr/share/jenkins/casc.yaml
 COPY casc.yaml /usr/share/jenkins/casc.yaml
 COPY init.groovy.d/ /usr/share/jenkins/ref/init.groovy.d/

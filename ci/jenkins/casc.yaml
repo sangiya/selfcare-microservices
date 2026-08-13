@@ -1,7 +1,6 @@
-# Jenkins Configuration as Code (JCasC) -- everything from the manual setup steps EXCEPT
-# registering a SonarQube server (that plugin's JCasC support is genuinely flaky across
-# versions -- see ci/README.md -- so it stays a one-time manual step; the credential it needs
-# is still created automatically below).
+# Jenkins Configuration as Code (JCasC) for the stable pieces. The SonarQube server itself is
+# registered by init.groovy.d/configuresonar.groovy on startup because that path is more stable
+# across Sonar plugin versions than trying to force it through JCasC.
 jenkins:
   numExecutors: 2
   # Matches `agent { label 'docker' }` in the root Jenkinsfile -- this repo has no separate
@@ -39,7 +38,7 @@ credentials:
               description: >-
                 Set the SONARQUBE_TOKEN env var (docker-compose.jenkins.yml) to a real token from
                 your local SonarQube's My Account > Security > Generate Token, then recreate this
-                container, to make the Code Quality/Quality Gate stages actually pass.
+                container so the auto-registered `sonarqube` server uses it.
 
 unclassified:
   globalLibraries:
@@ -61,7 +60,7 @@ unclassified:
 jobs:
   # A plain Pipeline job keeps the local setup simple, but it polls the mounted git repo so a
   # new local commit is picked up automatically without clicking Build Now each time.
-  - script: >
+  - script: |
       def repoUrl = System.getenv('SCM_REPO_URL') ?: 'file:///workspace/microservices'
       def branchName = System.getenv('SCM_BRANCH') ?: '*/main'
       pipelineJob('selfcare-microservices') {
