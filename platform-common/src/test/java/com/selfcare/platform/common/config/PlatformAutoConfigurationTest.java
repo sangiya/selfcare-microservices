@@ -11,14 +11,28 @@ import com.selfcare.platform.common.featureflag.UnleashFeatureFlagClient;
 import com.selfcare.platform.common.observability.CorrelationIdFilter;
 import com.selfcare.platform.common.tenant.TenantProperties;
 import com.selfcare.platform.common.tenant.TenantResolverFilter;
+import com.sun.net.httpserver.HttpServer;
 import io.getunleash.DefaultUnleash;
 import io.getunleash.Unleash;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 
 class PlatformAutoConfigurationTest {
 
     private final PlatformAutoConfiguration configuration = new PlatformAutoConfiguration();
+    private HttpServer server;
+
+    @AfterEach
+    void tearDown() {
+        if (server != null) {
+            server.stop(0);
+        }
+    }
 
     @Test
     void tenantResolverFilter_registersTheExpectedFilter() {
@@ -46,8 +60,10 @@ class PlatformAutoConfigurationTest {
     }
 
     @Test
-    void unleashClient_buildsAConfiguredClient() {
-        Unleash unleash = configuration.unleashClient("http://localhost:4242/api", "platform-common-test");
+    void unleashClient_buildsAConfiguredClient() throws Exception {
+        startUnleashStub();
+
+        Unleash unleash = configuration.unleashClient(baseUrl() + "/api", "platform-common-test");
 
         assertThat(unleash).isInstanceOf(DefaultUnleash.class);
         ((DefaultUnleash) unleash).shutdown();
@@ -70,5 +86,36 @@ class PlatformAutoConfigurationTest {
 
         assertThat(client.isEnabled("missing-flag", true)).isTrue();
         assertThat(client.isEnabled("missing-flag", false)).isFalse();
+    }
+
+    private void startUnleashStub() throws IOException {
+        server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/api/client/features", exchange -> {
+            writeResponse(exchange, 200, "{\"version\":1,\"features\":[]}");
+            exchange.close();
+        });
+        server.createContext("/api/client/register", exchange -> {
+            writeResponse(exchange, 202, "{}");
+            exchange.close();
+        });
+        server.createContext("/api/client/metrics", exchange -> {
+            writeResponse(exchange, 202, "{}");
+            exchange.close();
+        });
+        server.start();
+    }
+
+    private String baseUrl() {
+        return "http://localhost:" + server.getAddress().getPort();
+    }
+
+    private static void writeResponse(com.sun.net.httpserver.HttpExchange exchange, int status, String body)
+            throws IOException {
+        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().add("Content-Type", "application/json");
+        exchange.sendResponseHeaders(status, bytes.length);
+        try (OutputStream outputStream = exchange.getResponseBody()) {
+            outputStream.write(bytes);
+        }
     }
 }
