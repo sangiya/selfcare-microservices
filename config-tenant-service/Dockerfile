@@ -2,7 +2,7 @@
 # Build context must be the repo root (so this stage can resolve platform-common as a module):
 #   docker build -f config-tenant-service/Dockerfile -t config-tenant-service:local .
 
-FROM maven:3.9.8-eclipse-temurin-21 AS build
+FROM maven:3.9.11-eclipse-temurin-25 AS build
 WORKDIR /workspace
 COPY pom.xml .
 COPY platform-common platform-common
@@ -18,7 +18,7 @@ COPY content-service content-service
 RUN --mount=type=cache,target=/root/.m2 \
     mvn -q -pl platform-common,config-tenant-service -am -DskipTests package
 
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:25-jre-jammy
 RUN useradd --system --uid 10001 appuser
 WORKDIR /app
 COPY --from=build /workspace/config-tenant-service/target/config-tenant-service-*.jar app.jar
