@@ -150,10 +150,16 @@ pipeline {
         stage('Package & Scan Images') {
             steps {
                 script {
+                    def imageTag = env.IMAGE_TAG?.trim()
+                    if (!imageTag) {
+                        imageTag = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+                        env.IMAGE_TAG = imageTag
+                    }
                     params.SERVICES.split(',').each { svc ->
                         if (fileExists("${svc}/Dockerfile")) {
                             withEnv([
                                 "SERVICE=${svc}",
+                                "IMAGE_TAG=${imageTag}",
                                 "DOCKER_BUILDKIT=1",
                                 "COMPOSE_DOCKER_CLI_BUILD=1"
                             ]) {
@@ -174,9 +180,17 @@ pipeline {
             when { branch 'main' }
             steps {
                 script {
+                    def imageTag = env.IMAGE_TAG?.trim()
+                    if (!imageTag) {
+                        imageTag = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+                        env.IMAGE_TAG = imageTag
+                    }
                     params.SERVICES.split(',').each { svc ->
                         if (fileExists("${svc}/Dockerfile")) {
-                            withEnv(["SERVICE=${svc}"]) {
+                            withEnv([
+                                "SERVICE=${svc}",
+                                "IMAGE_TAG=${imageTag}"
+                            ]) {
                                 sh '''
                                   set -eu
                                   docker push "$REGISTRY/$SERVICE:$IMAGE_TAG"
@@ -195,9 +209,17 @@ pipeline {
             when { branch 'main' }
             steps {
                 script {
+                    def imageTag = env.IMAGE_TAG?.trim()
+                    if (!imageTag) {
+                        imageTag = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+                        env.IMAGE_TAG = imageTag
+                    }
                     params.SERVICES.split(',').each { svc ->
                         if (fileExists("deploy/helm/values/${svc}-values.yaml")) {
-                            withEnv(["SERVICE=${svc}"]) {
+                            withEnv([
+                                "SERVICE=${svc}",
+                                "IMAGE_TAG=${imageTag}"
+                            ]) {
                                 sh '''
                                   set -eu
                                   helm upgrade --install "$SERVICE" deploy/helm/microservice-chart \
