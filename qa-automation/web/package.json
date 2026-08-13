@@ -1,0 +1,16 @@
+{
+  "name": "qa-automation-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright E2E/API suite for the React (web/admin) frontend + a direct gateway smoke check.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report",
+    "install-browsers": "playwright install --with-deps chromium firefox webkit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.0",
+    "allure-playwright": "^3.0.0"
+  }
+}

@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.selfcare.platform</groupId>
+    <artifactId>selfcare-platform</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>api-tests</artifactId>
+  <packaging>jar</packaging>
+  <name>api-tests</name>
+  <description>
+    REST-Assured API contract tests (Doc 5 sec 6, item 2) that run against a DEPLOYED stack
+    rather than a Spring context, so they verify what a real client actually sees: HTTP status
+    codes, the shared response envelope, validation behaviour and tenant scoping.
+
+    These need a running environment, so they are bound to failsafe behind the `api-tests`
+    profile -- a plain `mvn clean install` builds this module but runs nothing, and CI opts in
+    explicitly after the Deploy to Dev stage.
+  </description>
+
+  <properties>
+    <!-- No production code here: nothing to cover, nothing to send to Sonar. -->
+    <jacoco.skip>true</jacoco.skip>
+    <sonar.skip>true</sonar.skip>
+    <api.base.url>http://localhost:8080</api.base.url>
+    <tenant.id>acme-telecom</tenant.id>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.rest-assured</groupId>
+      <artifactId>rest-assured</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.rest-assured</groupId>
+      <artifactId>json-path</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.qameta.allure</groupId>
+      <artifactId>allure-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.qameta.allure</groupId>
+      <artifactId>allure-rest-assured</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <profiles>
+    <profile>
+      <id>api-tests</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <configuration>
+              <systemPropertyVariables>
+                <api.base.url>${api.base.url}</api.base.url>
+                <tenant.id>${tenant.id}</tenant.id>
+                <allure.results.directory>${project.build.directory}/allure-results</allure.results.directory>
+              </systemPropertyVariables>
+            </configuration>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>integration-test</goal>
+                  <goal>verify</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>

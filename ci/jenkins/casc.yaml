@@ -59,11 +59,13 @@ unclassified:
                 remote: "file:///var/jenkins_home/shared-lib-src"
 
 jobs:
-  # A plain Pipeline job (not Multibranch) deliberately -- that's what keeps BRANCH_NAME unset
-  # locally, which is what naturally skips Push Images/Deploy to Dev/QA Automation/Performance
-  # Test, since none of the infrastructure those need exists on a laptop.
+  # A plain Pipeline job keeps the local setup simple, but it polls the mounted git repo so a
+  # new local commit is picked up automatically without clicking Build Now each time.
   - script: >
       pipelineJob('selfcare-microservices') {
+        triggers {
+          scm('H/2 * * * *')
+        }
         definition {
           cpsScm {
             scm {

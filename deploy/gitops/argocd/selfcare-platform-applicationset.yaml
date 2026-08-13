@@ -1,0 +1,46 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: selfcare-platform
+  namespace: argocd
+spec:
+  generators:
+    - matrix:
+        generators:
+          - list:
+              elements:
+                - operator: acme
+                  namespace: acme-telecom
+          - list:
+              elements:
+                - service: api-gateway
+                - service: config-tenant-service
+                - service: content-service
+                - service: loyalty-service
+                - service: notification-service
+                - service: reports-service
+  template:
+    metadata:
+      name: '{{operator}}-{{service}}'
+      labels:
+        app.kubernetes.io/part-of: selfcare-platform
+        selfcare.operator: '{{operator}}'
+    spec:
+      project: selfcare-platform
+      source:
+        repoURL: https://gitlab.example.com/replace-me/selfcare-platform.git
+        targetRevision: main
+        path: deploy/helm/microservice-chart
+        helm:
+          valueFiles:
+            - ../values/{{service}}-values.yaml
+            - ../values/operator-values/operator-{{operator}}-values.yaml
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

@@ -1,15 +1,21 @@
 package com.selfcare.platform.common.web;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.context.MessageSourceResolvable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /**
  * Translates every exception into the standard {@link ApiResponse} envelope and logs it once,
@@ -42,6 +48,46 @@ public class GlobalExceptionHandler {
                 .orElse("Validation failed");
         return ResponseEntity.badRequest()
                 .body(ApiResponse.failure(new ApiResponse.ApiError("VALIDATION_ERROR", message, traceId)));
+    }
+
+    /**
+     * Spring's request-binding failures: a missing required parameter, a parameter that can't be
+     * converted (an unknown enum constant, a malformed date), a body Jackson can't read, or a
+     * constraint on a handler-method parameter. All of these are malformed CLIENT requests, so
+     * they must not reach the catch-all below -- reporting a caller's mistake as a 500 blames the
+     * service for it, and inflates the error rate that on-call alerting watches.
+     */
+    @ExceptionHandler({
+        MissingServletRequestParameterException.class,
+        MethodArgumentTypeMismatchException.class,
+        HttpMessageNotReadableException.class,
+        HandlerMethodValidationException.class
+    })
+    public ResponseEntity<ApiResponse<Void>> handleBadRequest(Exception ex, HttpServletRequest request) {
+        String traceId = MDC.get("traceId");
+        log.warn("Rejected malformed request on {} {}: {}", request.getMethod(), request.getRequestURI(),
+                ex.getMessage());
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.failure(new ApiResponse.ApiError("VALIDATION_ERROR", describe(ex), traceId)));
+    }
+
+    private static String describe(Exception ex) {
+        if (ex instanceof MissingServletRequestParameterException missing) {
+            return missing.getParameterName() + " is required";
+        }
+        if (ex instanceof MethodArgumentTypeMismatchException mismatch) {
+            return mismatch.getName() + " has an invalid value";
+        }
+        if (ex instanceof HandlerMethodValidationException validation) {
+            return validation.getAllErrors().stream()
+                    .map(MessageSourceResolvable::getDefaultMessage)
+                    .filter(Objects::nonNull)
+                    .reduce((a, b) -> a + "; " + b)
+                    .orElse("Validation failed");
+        }
+        // Jackson names the offending field but also leaks type/class internals, so the detail
+        // stays on the log line above and the client gets the safe summary.
+        return "Request body is malformed or contains an invalid value";
     }
 
     @ExceptionHandler(Exception.class)

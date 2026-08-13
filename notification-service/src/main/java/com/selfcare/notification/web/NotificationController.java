@@ -3,6 +3,7 @@ package com.selfcare.notification.web;
 import com.selfcare.notification.domain.NotificationChannel;
 import com.selfcare.notification.domain.NotificationRequest;
 import com.selfcare.notification.repository.NotificationRequestRepository;
+import com.selfcare.notification.service.NotificationDeliveryService;
 import com.selfcare.platform.common.tenant.TenantContext;
 import com.selfcare.platform.common.web.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -17,10 +18,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * STARTER MODULE. The Kafka-driven path ({@code LoyaltyEventListener}) is fully wired; this
- * direct REST path for other services/screens to request a notification synchronously is a
- * stub -- TODO: call the real provider adapter (see README-TODO.md) instead of just persisting
- * QUEUED.
+ * Direct REST path for other services/screens to request a notification synchronously. Delivery
+ * goes through the pluggable provider adapter capability so operators can replace the default
+ * implementation without changing this controller.
  */
 @RestController
 @RequestMapping("/api/v1/notifications")
@@ -28,9 +28,13 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Notifications & Comms", description = "STARTER -- Doc 5 pilot domain 3 of 4; see README-TODO.md")
 public class NotificationController {
 
+    private final NotificationDeliveryService deliveryService;
     private final NotificationRequestRepository repository;
 
-    public NotificationController(NotificationRequestRepository repository) {
+    public NotificationController(
+            NotificationDeliveryService deliveryService,
+            NotificationRequestRepository repository) {
+        this.deliveryService = deliveryService;
         this.repository = repository;
     }
 
@@ -45,7 +49,7 @@ public class NotificationController {
         request.setChannel(channel);
         request.setTemplateKey(templateKey);
         request.setSourceEvent("direct-api");
-        return ApiResponse.ok(repository.save(request));
+        return ApiResponse.ok(deliveryService.deliver(request));
     }
 
     @GetMapping

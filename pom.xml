@@ -32,6 +32,19 @@
     <module>content-service</module>
   </modules>
 
+  <profiles>
+    <profile>
+      <!-- api-tests is deliberately NOT a default module: it holds no production code, needs a
+           deployed environment to run against, and the service Dockerfiles copy an explicit list
+           of module directories into their build context, so listing it above breaks every image
+           build. Activate with -Papi-tests, which also switches on failsafe in that module. -->
+      <id>api-tests</id>
+      <modules>
+        <module>api-tests</module>
+      </modules>
+    </profile>
+  </profiles>
+
   <properties>
     <java.version>21</java.version>
     <maven.compiler.source>21</maven.compiler.source>
@@ -39,7 +52,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
     <spring-cloud.version>2023.0.3</spring-cloud.version>
-    <lombok.version>1.18.34</lombok.version>
+    <lombok.version>1.18.46</lombok.version>
     <mapstruct.version>1.6.2</mapstruct.version>
     <!-- 1.21+ required: the docker-java bundled with 1.20.x falls back to Docker API 1.32, which
          Engine 29 (MinAPIVersion 1.40) rejects with a 400. Testcontainers then reports "Could
@@ -47,8 +60,9 @@
     <testcontainers.version>1.21.4</testcontainers.version>
     <springdoc.version>2.6.0</springdoc.version>
     <wiremock.version>3.9.1</wiremock.version>
+    <allure.version>2.35.4</allure.version>
     <unleash-client.version>9.2.5</unleash-client.version>
-    <jacoco.version>0.8.12</jacoco.version>
+    <jacoco.version>0.8.15</jacoco.version>
     <sonar.coverage.jacoco.xmlReportPaths>${project.basedir}/../target/site/jacoco-aggregate/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
     <sonar.exclusions>**/dto/**,**/domain/**,**/*Application.java</sonar.exclusions>
   </properties>
@@ -66,6 +80,13 @@
         <groupId>org.testcontainers</groupId>
         <artifactId>testcontainers-bom</artifactId>
         <version>${testcontainers.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>io.qameta.allure</groupId>
+        <artifactId>allure-bom</artifactId>
+        <version>${allure.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -121,6 +142,17 @@
           <groupId>org.jacoco</groupId>
           <artifactId>jacoco-maven-plugin</artifactId>
           <version>${jacoco.version}</version>
+          <configuration>
+            <!-- Same set as sonar.exclusions above. These are records and JPA/Mongo entities
+                 whose bodies are generated accessors, plus the Spring Boot main class; counting
+                 them made the gate below disagree with what Sonar reports for the same module,
+                 and made a module's ratio depend mostly on how many fields its entities have. -->
+            <excludes>
+              <exclude>**/dto/**</exclude>
+              <exclude>**/domain/**</exclude>
+              <exclude>**/*Application.class</exclude>
+            </excludes>
+          </configuration>
           <executions>
             <execution>
               <id>prepare-agent</id>
