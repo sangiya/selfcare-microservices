@@ -27,7 +27,13 @@ import org.springframework.web.client.RestClientException;
 public class MifeLoyaltyCoreAdapter implements LoyaltyCoreAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(MifeLoyaltyCoreAdapter.class);
-    private static final List<Integer> HTTP_SUCCESS_CODES = List.of(200, 201);
+    private static final String COUNTER_ALIAS = "counterAlias";
+    private static final String COUNTER_AUTH = "counterAuth";
+    private static final String SUBSCRIBER_TYPE = "subscriberType";
+    private static final String SUBSCRIBER_VALUE = "subscriberValue";
+    private static final String MOBILE = "MOBILE";
+    private static final String STATUS = "status";
+    private static final String AMOUNT = "amount";
 
     private final RestClient restClient;
     private final MifeProperties properties;
@@ -46,14 +52,14 @@ public class MifeLoyaltyCoreAdapter implements LoyaltyCoreAdapter {
     @SuppressWarnings("unchecked")
     public PointsBalance getBalance(String subscriberMsisdn) {
         Map<String, Object> params = Map.of(
-                "counterAlias", properties.getBalanceCounter().getAlias(),
-                "counterAuth", properties.getBalanceCounter().getAuth(),
-                "subscriberType", "MOBILE",
-                "subscriberValue", subscriberMsisdn,
+                COUNTER_ALIAS, properties.getBalanceCounter().getAlias(),
+                COUNTER_AUTH, properties.getBalanceCounter().getAuth(),
+                SUBSCRIBER_TYPE, MOBILE,
+                SUBSCRIBER_VALUE, subscriberMsisdn,
                 "accessMode", "WEB");
 
         Map<String, Object> result = post("/apicall/starPointsAPI/balanceCheck/1.0", params);
-        Integer status = asInt(result.get("status"));
+        Integer status = asInt(result.get(STATUS));
         if (status != null && status == 0) {
             return new PointsBalance(asDecimal(result.get("currentBalance")), asDecimal(result.get("redeemableBalance")));
         }
@@ -68,15 +74,15 @@ public class MifeLoyaltyCoreAdapter implements LoyaltyCoreAdapter {
     @Override
     public RegistrationResult register(RegisterCommand command) {
         Map<String, Object> params = Map.of(
-                "counterAlias", properties.getBalanceCounter().getAlias(),
-                "counterAuth", properties.getBalanceCounter().getAuth(),
-                "typeBeans", List.of(Map.of("subscriberType", "MOBILE", "subscriberValue", command.subscriberMsisdn())),
+                COUNTER_ALIAS, properties.getBalanceCounter().getAlias(),
+                COUNTER_AUTH, properties.getBalanceCounter().getAuth(),
+                "typeBeans", List.of(Map.of(SUBSCRIBER_TYPE, MOBILE, SUBSCRIBER_VALUE, command.subscriberMsisdn())),
                 "identificationType", command.idType(),
                 "identificationValue", command.idNumber(),
                 "accessMode", "WEB");
 
         Map<String, Object> result = put("/apicall/starPointsAPI/profileRegisterRequest/1.0", params);
-        Integer status = asInt(result.get("status"));
+        Integer status = asInt(result.get(STATUS));
         if (status == null || status != 0) {
             throw new LoyaltyCoreIntegrationException("Registration failed: " + result.get("errorDesc"));
         }
@@ -91,13 +97,13 @@ public class MifeLoyaltyCoreAdapter implements LoyaltyCoreAdapter {
     @Override
     public void transferPoints(TransferCommand command) {
         Map<String, Object> params = Map.of(
-                "counterAlias", properties.getTransferCounter().getAlias(),
-                "counterAuth", properties.getTransferCounter().getAuth(),
-                "fromSubscriberType", "MOBILE",
+                COUNTER_ALIAS, properties.getTransferCounter().getAlias(),
+                COUNTER_AUTH, properties.getTransferCounter().getAuth(),
+                "fromSubscriberType", MOBILE,
                 "fromSubscriberValue", command.fromSubscriberMsisdn(),
-                "toSubscriberType", "MOBILE",
+                "toSubscriberType", MOBILE,
                 "toSubscriberValue", command.toSubscriberMsisdn(),
-                "amount", command.amount(),
+                AMOUNT, command.amount(),
                 "serviceAccessMode", "WEB");
 
         Map<String, Object> result = post("/apicall/starPointsAPI/transferStarPoints/1.0", params);
@@ -110,12 +116,12 @@ public class MifeLoyaltyCoreAdapter implements LoyaltyCoreAdapter {
     @Override
     public void donatePoints(DonateCommand command) {
         Map<String, Object> params = Map.of(
-                "counterAlias", properties.getDonateCounter().getAlias(),
-                "counterAuth", properties.getDonateCounter().getAuth(),
-                "subscriberType", "MOBILE",
-                "subscriberValue", command.subscriberMsisdn(),
+                COUNTER_ALIAS, properties.getDonateCounter().getAlias(),
+                COUNTER_AUTH, properties.getDonateCounter().getAuth(),
+                SUBSCRIBER_TYPE, MOBILE,
+                SUBSCRIBER_VALUE, command.subscriberMsisdn(),
                 "donationAlias", command.donationAlias(),
-                "amount", command.amount());
+                AMOUNT, command.amount());
 
         Map<String, Object> result = post("/apicall/starPointsAPI/starpointDonate/1.0", params);
         Integer statusCode = asInt(result.get("statusCode"));
@@ -135,18 +141,18 @@ public class MifeLoyaltyCoreAdapter implements LoyaltyCoreAdapter {
     @SuppressWarnings("unchecked")
     private List<PointsHistoryEntry> fetchTransactions(String subscriberMsisdn, String transactionType, int listSize) {
         Map<String, Object> params = Map.of(
-                "counterAlias", properties.getBalanceCounter().getAlias(),
-                "counterAuth", properties.getBalanceCounter().getAuth(),
+                COUNTER_ALIAS, properties.getBalanceCounter().getAlias(),
+                COUNTER_AUTH, properties.getBalanceCounter().getAuth(),
                 "queryBY", "SUBSCRIBER",
-                "subscriberType", "MOBILE",
-                "subscriberValue", subscriberMsisdn,
+                SUBSCRIBER_TYPE, MOBILE,
+                SUBSCRIBER_VALUE, subscriberMsisdn,
                 "transactionType", transactionType,
                 "listSize", String.valueOf(listSize),
                 "searchRange", String.valueOf(listSize),
                 "serviceAccessMode", "WEB");
 
         Map<String, Object> result = post("/apicall/StarpointLoyalitySystem/listRequest/1.0", params);
-        Integer status = asInt(result.get("status"));
+        Integer status = asInt(result.get(STATUS));
         if (status == null || status != 0) {
             log.warn("MIFE history lookup ({}) returned non-zero status={}, treating as empty", transactionType, status);
             return List.of();
@@ -165,7 +171,8 @@ public class MifeLoyaltyCoreAdapter implements LoyaltyCoreAdapter {
     @SuppressWarnings("unchecked")
     private Map<String, Object> post(String path, Map<String, Object> body) {
         try {
-            return restClient.post().uri(path).body(body).retrieve().body(Map.class);
+            Map<String, Object> response = restClient.post().uri(path).body(body).retrieve().body(Map.class);
+            return requireResponseBody("POST", path, response);
         } catch (RestClientException ex) {
             throw new LoyaltyCoreIntegrationException("MIFE call failed: POST " + path, ex);
         }
@@ -174,10 +181,18 @@ public class MifeLoyaltyCoreAdapter implements LoyaltyCoreAdapter {
     @SuppressWarnings("unchecked")
     private Map<String, Object> put(String path, Map<String, Object> body) {
         try {
-            return restClient.put().uri(path).body(body).retrieve().body(Map.class);
+            Map<String, Object> response = restClient.put().uri(path).body(body).retrieve().body(Map.class);
+            return requireResponseBody("PUT", path, response);
         } catch (RestClientException ex) {
             throw new LoyaltyCoreIntegrationException("MIFE call failed: PUT " + path, ex);
         }
+    }
+
+    private static Map<String, Object> requireResponseBody(String method, String path, Map<String, Object> response) {
+        if (response == null) {
+            throw new LoyaltyCoreIntegrationException("MIFE call returned an empty body: " + method + ' ' + path);
+        }
+        return response;
     }
 
     private static Integer asInt(Object value) {
@@ -189,7 +204,7 @@ public class MifeLoyaltyCoreAdapter implements LoyaltyCoreAdapter {
         }
         try {
             return Integer.parseInt(String.valueOf(value));
-        } catch (NumberFormatException ex) {
+        } catch (NumberFormatException _) {
             return null;
         }
     }

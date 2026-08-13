@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -38,6 +39,7 @@ import org.springframework.security.web.SecurityFilterChain;
  */
 @Configuration
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+@SuppressWarnings("java:S1118")
 public class ResourceServerSecurityConfig {
 
     @Configuration
@@ -48,9 +50,10 @@ public class ResourceServerSecurityConfig {
         private String jwkSetUri;
 
         @Bean
-        public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        @SuppressWarnings("java:S4502")
+        public SecurityFilterChain filterChain(HttpSecurity http) {
             http
-                    .csrf(csrf -> csrf.disable()) // stateless JWT APIs behind the BFF; CSRF not applicable
+                    .csrf(AbstractHttpConfigurer::disable) // bearer-token-only API; no cookie/session auth, so CSRF tokens add no protection
                     .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                     .authorizeHttpRequests(auth -> auth
                             .requestMatchers("/actuator/health/**", "/actuator/prometheus", "/actuator/info").permitAll()
@@ -73,14 +76,15 @@ public class ResourceServerSecurityConfig {
         private static final Logger log = LoggerFactory.getLogger(PermitAllLocalDevConfig.class);
 
         @Bean
-        public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        @SuppressWarnings("java:S4502")
+        public SecurityFilterChain filterChain(HttpSecurity http) {
             log.warn("!!! platform.security.jwk-set-uri (AUTH_SERVICE_JWK_URI) is NOT SET. Every endpoint "
                     + "on this service is UNAUTHENTICATED (permit-all). This is only acceptable for local "
                     + "docker-compose development against a stubbed/absent Auth Service -- every real "
                     + "environment must set AUTH_SERVICE_JWK_URI. If you are seeing this warning outside "
                     + "local dev, fix the deployment config immediately.");
             http
-                    .csrf(csrf -> csrf.disable())
+                    .csrf(AbstractHttpConfigurer::disable)
                     .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                     .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
             return http.build();

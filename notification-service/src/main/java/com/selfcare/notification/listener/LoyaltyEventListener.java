@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 public class LoyaltyEventListener {
 
     private static final Logger log = LoggerFactory.getLogger(LoyaltyEventListener.class);
+    private static final String UNKNOWN = "unknown";
 
     private final NotificationDeliveryService deliveryService;
 
@@ -31,8 +32,8 @@ public class LoyaltyEventListener {
     public void onPointsEvent(Map<String, Object> event) {
         log.info("Received loyalty.points.events: {}", event);
         NotificationRequest request = new NotificationRequest();
-        request.setTenantId(String.valueOf(event.getOrDefault("tenantId", "unknown")));
-        request.setSubscriberMsisdn(String.valueOf(event.getOrDefault("subscriberMsisdn", "unknown")));
+        request.setTenantId(String.valueOf(event.getOrDefault("tenantId", UNKNOWN)));
+        request.setSubscriberMsisdn(String.valueOf(event.getOrDefault("subscriberMsisdn", UNKNOWN)));
         request.setChannel(NotificationChannel.PUSH);
         request.setTemplateKey("loyalty-points-" + String.valueOf(event.getOrDefault("eventType", "activity")).toLowerCase());
         request.setPayloadJson(event.toString());
@@ -44,11 +45,11 @@ public class LoyaltyEventListener {
     public void onPartnerRedemptionRequested(Map<String, Object> event) {
         log.info("Received loyalty.partner-redemption.requested: {}", event);
         NotificationRequest request = new NotificationRequest();
-        request.setTenantId(String.valueOf(event.getOrDefault("tenantId", "unknown")));
-        request.setSubscriberMsisdn(String.valueOf(event.getOrDefault("subscriberMsisdn", "unknown")));
-        // Legacy behavior emailed an internal ops mailbox (SP_REQUEST_EMAIL) -- replaced by an
-        // EMAIL notification to ops via the (TODO) provider adapter, instead of the loyalty
-        // service owning SMTP details.
+        request.setTenantId(String.valueOf(event.getOrDefault("tenantId", UNKNOWN)));
+        request.setSubscriberMsisdn(String.valueOf(event.getOrDefault("subscriberMsisdn", UNKNOWN)));
+        // Legacy behavior emailed an internal ops mailbox (SP_REQUEST_EMAIL). This listener now
+        // routes the request through notification-service's EMAIL adapter rather than letting
+        // loyalty-service own SMTP/provider details directly.
         request.setChannel(NotificationChannel.EMAIL);
         request.setTemplateKey("loyalty-partner-redemption-ops-request");
         request.setPayloadJson(event.toString());

@@ -10,7 +10,7 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 
 /**
  * Consumes events published by other services (loyalty-service in this reference wiring) as a
@@ -28,7 +28,7 @@ public class KafkaConsumerConfig {
     public ConsumerFactory<String, Map<String, Object>> consumerFactory(
             @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers,
             @Value("${spring.kafka.consumer.group-id}") String groupId) {
-        JsonDeserializer<Map<String, Object>> jsonDeserializer = new JsonDeserializer<>(Map.class, false);
+        JacksonJsonDeserializer<Map<String, Object>> jsonDeserializer = new JacksonJsonDeserializer<>(Map.class, false);
         jsonDeserializer.addTrustedPackages("*");
 
         Map<String, Object> props = Map.of(

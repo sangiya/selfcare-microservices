@@ -6,10 +6,10 @@
         <entry key="0">
           <value>
             <TabSessionState>
-              <option name="provider" value="claude" />
-              <option name="sessionId" value="e3eea24f-f5a3-4413-bc28-4cb4db494551" />
+              <option name="provider" value="codex" />
+              <option name="sessionId" value="019ff9de-4fb6-7842-bff7-bef97323503d" />
               <option name="cwd" value="D:\MDA\Architectures\Product Architecture\Selfcare\selfcaremicroservices\microservices" />
-              <option name="model" value="claude-opus-5[1m]" />
+              <option name="model" value="gpt-5.4" />
               <option name="permissionMode" value="bypassPermissions" />
             </TabSessionState>
           </value>

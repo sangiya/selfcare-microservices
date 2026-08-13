@@ -27,7 +27,7 @@ import org.springframework.http.ResponseEntity;
 
 /**
  * Unit tests for the shell that IS implemented -- submit/status/list. Per-{@link ReportType}
- * generation logic is still a TODO (see the class javadoc and README-TODO.md), so there's
+ * generation logic is still deferred (see the class javadoc and the companion module README), so there's
  * nothing to unit test there yet; extend this file alongside that work, following
  * loyalty-service's {@code LoyaltyServiceImplTest} pattern.
  */
@@ -69,8 +69,8 @@ class ReportsControllerTest {
         assertThat(saved.getReportType()).isEqualTo(ReportType.ACTIVITY_REPORT);
         assertThat(saved.getFromDate()).isEqualTo(from);
         assertThat(saved.getToDate()).isEqualTo(to);
-        // Entity default -- nothing has generated the report yet, see the TODO on the async
-        // "report.requested" event this controller doesn't publish yet.
+        // Entity default -- nothing has generated the report yet because the async
+        // "report.requested" worker flow has not been added in this starter module.
         assertThat(saved.getStatus()).isEqualTo(ReportStatus.PENDING);
         verify(repository).save(any(ReportRequest.class));
     }

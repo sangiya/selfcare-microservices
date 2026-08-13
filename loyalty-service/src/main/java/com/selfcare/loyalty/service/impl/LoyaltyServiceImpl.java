@@ -70,12 +70,13 @@ public class LoyaltyServiceImpl implements LoyaltyService {
     @Override
     public BalanceResponse getBalance(String nationalId, String subscriberMsisdn) {
         validateOrThrow(nationalId, subscriberMsisdn, LoyaltyActionType.GET_BALANCE);
+        AuditActor actor = new AuditActor(subscriberMsisdn, nationalId);
         try {
             LoyaltyCoreAdapter.PointsBalance balance = adapter().getBalance(subscriberMsisdn);
-            audit(subscriberMsisdn, nationalId, LoyaltyActionType.GET_BALANCE, AuditStatus.SUCCESS, null, null, null, null);
+            audit(actor, LoyaltyActionType.GET_BALANCE, AuditStatus.SUCCESS, AuditMetadata.none());
             return new BalanceResponse(balance.currentBalance(), balance.redeemableBalance());
         } catch (LoyaltyCoreIntegrationException ex) {
-            audit(subscriberMsisdn, nationalId, LoyaltyActionType.GET_BALANCE, AuditStatus.FAILURE, null, null, null, ex.getMessage());
+            audit(actor, LoyaltyActionType.GET_BALANCE, AuditStatus.FAILURE, AuditMetadata.detail(ex.getMessage()));
             throw ex;
         }
     }
@@ -83,16 +84,15 @@ public class LoyaltyServiceImpl implements LoyaltyService {
     @Override
     public RegisterResponse register(RegisterRequest request) {
         validateOrThrow(request.nationalId(), request.msisdn(), LoyaltyActionType.REGISTER);
+        AuditActor actor = new AuditActor(request.msisdn(), request.nationalId());
         try {
             LoyaltyCoreAdapter.RegisterCommand command = new LoyaltyCoreAdapter.RegisterCommand(
                     request.msisdn(), request.idType(), request.idNumber(), request.name(), request.address(), request.email());
             LoyaltyCoreAdapter.RegistrationResult result = adapter().register(command);
-            audit(request.msisdn(), request.nationalId(), LoyaltyActionType.REGISTER, AuditStatus.SUCCESS, null, null, null,
-                    "status=" + result.status());
+            audit(actor, LoyaltyActionType.REGISTER, AuditStatus.SUCCESS, AuditMetadata.detail("status=" + result.status()));
             return new RegisterResponse(result.status().name(), result.pinTransactionRef());
         } catch (LoyaltyCoreIntegrationException ex) {
-            audit(request.msisdn(), request.nationalId(), LoyaltyActionType.REGISTER, AuditStatus.FAILURE, null, null, null,
-                    ex.getMessage());
+            audit(actor, LoyaltyActionType.REGISTER, AuditStatus.FAILURE, AuditMetadata.detail(ex.getMessage()));
             throw ex;
         }
     }
@@ -101,16 +101,18 @@ public class LoyaltyServiceImpl implements LoyaltyService {
     @Transactional
     public void transfer(String nationalId, String fromMsisdn, TransferChannel channel, String toIdentifier, BigDecimal amount) {
         validateOrThrow(nationalId, fromMsisdn, LoyaltyActionType.TRANSFER);
+        AuditActor actor = new AuditActor(fromMsisdn, nationalId);
+        AuditMetadata transferMetadata = AuditMetadata.of(channel.name(), toIdentifier, amount, null);
 
         if (channel == TransferChannel.MOBILE) {
             try {
                 adapter().transferPoints(new LoyaltyCoreAdapter.TransferCommand(fromMsisdn, toIdentifier, amount));
-                audit(fromMsisdn, nationalId, LoyaltyActionType.TRANSFER, AuditStatus.SUCCESS, channel.name(), toIdentifier, amount, null);
+                audit(actor, LoyaltyActionType.TRANSFER, AuditStatus.SUCCESS, transferMetadata);
                 eventPublisher.publishPointsTransfer(new PointsTransferEvent(
                         TenantContext.get(), "TRANSFER", fromMsisdn, toIdentifier, amount, Instant.now()));
             } catch (LoyaltyCoreIntegrationException ex) {
-                audit(fromMsisdn, nationalId, LoyaltyActionType.TRANSFER, AuditStatus.FAILURE, channel.name(), toIdentifier, amount,
-                        ex.getMessage());
+                audit(actor, LoyaltyActionType.TRANSFER, AuditStatus.FAILURE,
+                        transferMetadata.withDetail(ex.getMessage()));
                 throw ex;
             }
             return;
@@ -120,28 +122,30 @@ public class LoyaltyServiceImpl implements LoyaltyService {
         // config/feature-flag driven, not hard-coded per operator).
         String flagName = "loyalty-partner-transfer-" + channel.name().toLowerCase();
         if (!featureFlagClient.isEnabled(flagName, false)) {
-            audit(fromMsisdn, nationalId, LoyaltyActionType.PARTNER_REDEMPTION_REQUEST, AuditStatus.FAILURE, channel.name(),
-                    toIdentifier, amount, "channel not enabled for this operator");
+            audit(actor, LoyaltyActionType.PARTNER_REDEMPTION_REQUEST, AuditStatus.FAILURE,
+                    transferMetadata.withDetail("channel not enabled for this operator"));
             throw new UnsupportedTransferChannelException(
                     "Transfer channel " + channel + " is not enabled for this operator");
         }
 
         eventPublisher.publishPartnerRedemptionRequested(
                 new PartnerRedemptionRequestedEvent(TenantContext.get(), channel.name(), fromMsisdn, toIdentifier, amount, Instant.now()));
-        audit(fromMsisdn, nationalId, LoyaltyActionType.PARTNER_REDEMPTION_REQUEST, AuditStatus.SUCCESS, channel.name(), toIdentifier,
-                amount, "partner redemption request queued");
+        audit(actor, LoyaltyActionType.PARTNER_REDEMPTION_REQUEST, AuditStatus.SUCCESS,
+                transferMetadata.withDetail("partner redemption request queued"));
     }
 
     @Override
     public void donate(String nationalId, String msisdn, String donationAlias, BigDecimal amount) {
         validateOrThrow(nationalId, msisdn, LoyaltyActionType.DONATE);
+        AuditActor actor = new AuditActor(msisdn, nationalId);
+        AuditMetadata donationMetadata = AuditMetadata.of(null, donationAlias, amount, null);
         try {
             adapter().donatePoints(new LoyaltyCoreAdapter.DonateCommand(msisdn, donationAlias, amount));
-            audit(msisdn, nationalId, LoyaltyActionType.DONATE, AuditStatus.SUCCESS, null, donationAlias, amount, null);
+            audit(actor, LoyaltyActionType.DONATE, AuditStatus.SUCCESS, donationMetadata);
             eventPublisher.publishPointsTransfer(
                     new PointsTransferEvent(TenantContext.get(), "DONATE", msisdn, donationAlias, amount, Instant.now()));
         } catch (LoyaltyCoreIntegrationException ex) {
-            audit(msisdn, nationalId, LoyaltyActionType.DONATE, AuditStatus.FAILURE, null, donationAlias, amount, ex.getMessage());
+            audit(actor, LoyaltyActionType.DONATE, AuditStatus.FAILURE, donationMetadata.withDetail(ex.getMessage()));
             throw ex;
         }
     }
@@ -150,7 +154,7 @@ public class LoyaltyServiceImpl implements LoyaltyService {
     public List<HistoryEntryResponse> getHistory(String nationalId, String subscriberMsisdn, int listSize) {
         validateOrThrow(nationalId, subscriberMsisdn, LoyaltyActionType.GET_ACTIVITY);
         LoyaltyCoreAdapter.PointsHistory history = adapter().getHistory(subscriberMsisdn, listSize);
-        audit(subscriberMsisdn, nationalId, LoyaltyActionType.GET_ACTIVITY, AuditStatus.SUCCESS, null, null, null, null);
+        audit(new AuditActor(subscriberMsisdn, nationalId), LoyaltyActionType.GET_ACTIVITY, AuditStatus.SUCCESS, AuditMetadata.none());
         return history.entries().stream()
                 .map(e -> new HistoryEntryResponse(e.transactionSerial(), e.transactionType(), e.merchant(), e.amount(), e.occurredAt()))
                 .toList();
@@ -170,24 +174,46 @@ public class LoyaltyServiceImpl implements LoyaltyService {
 
     private void validateOrThrow(String nationalId, String subscriberMsisdn, LoyaltyActionType actionType) {
         if (!customerValidationClient.isValidCustomer(nationalId, subscriberMsisdn)) {
-            audit(subscriberMsisdn, nationalId, actionType, AuditStatus.FAILURE, null, null, null, "customer validation failed");
+            audit(new AuditActor(subscriberMsisdn, nationalId), actionType, AuditStatus.FAILURE,
+                    AuditMetadata.detail("customer validation failed"));
             throw new CustomerValidationException("Customer validation failed for the supplied nationalId/msisdn");
         }
     }
 
-    private void audit(String msisdn, String nationalId, LoyaltyActionType actionType, AuditStatus status, String channel,
-            String counterparty, BigDecimal amount, String detail) {
+    private void audit(AuditActor actor, LoyaltyActionType actionType, AuditStatus status, AuditMetadata metadata) {
         LoyaltyTransactionAudit entry = LoyaltyTransactionAudit.builder()
                 .tenantId(TenantContext.get())
-                .subscriberMsisdn(msisdn)
-                .nationalId(nationalId)
+                .subscriberMsisdn(actor.msisdn())
+                .nationalId(actor.nationalId())
                 .actionType(actionType)
                 .status(status)
-                .channel(channel)
-                .counterparty(counterparty)
-                .amount(amount)
-                .detail(detail)
+                .channel(metadata.channel())
+                .counterparty(metadata.counterparty())
+                .amount(metadata.amount())
+                .detail(metadata.detail())
                 .build();
         auditRepository.save(entry);
+    }
+
+    private record AuditActor(String msisdn, String nationalId) {
+    }
+
+    private record AuditMetadata(String channel, String counterparty, BigDecimal amount, String detail) {
+
+        private static AuditMetadata none() {
+            return new AuditMetadata(null, null, null, null);
+        }
+
+        private static AuditMetadata detail(String detail) {
+            return new AuditMetadata(null, null, null, detail);
+        }
+
+        private static AuditMetadata of(String channel, String counterparty, BigDecimal amount, String detail) {
+            return new AuditMetadata(channel, counterparty, amount, detail);
+        }
+
+        private AuditMetadata withDetail(String detail) {
+            return new AuditMetadata(channel, counterparty, amount, detail);
+        }
     }
 }

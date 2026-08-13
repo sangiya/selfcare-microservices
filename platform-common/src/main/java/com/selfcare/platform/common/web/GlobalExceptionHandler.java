@@ -29,10 +29,11 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final String TRACE_ID = "traceId";
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiResponse<Void>> handleApiException(ApiException ex, HttpServletRequest request) {
-        String traceId = MDC.get("traceId");
+        String traceId = MDC.get(TRACE_ID);
         log.warn("Handled API exception on {} {}: {} ({})", request.getMethod(), request.getRequestURI(),
                 ex.getMessage(), ex.getErrorCode());
         return ResponseEntity.status(ex.getStatus())
@@ -41,7 +42,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException ex) {
-        String traceId = MDC.get("traceId");
+        String traceId = MDC.get(TRACE_ID);
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .map(FieldError::getDefaultMessage)
                 .reduce((a, b) -> a + "; " + b)
@@ -64,7 +65,7 @@ public class GlobalExceptionHandler {
         HandlerMethodValidationException.class
     })
     public ResponseEntity<ApiResponse<Void>> handleBadRequest(Exception ex, HttpServletRequest request) {
-        String traceId = MDC.get("traceId");
+        String traceId = MDC.get(TRACE_ID);
         log.warn("Rejected malformed request on {} {}: {}", request.getMethod(), request.getRequestURI(),
                 ex.getMessage());
         return ResponseEntity.badRequest()
@@ -92,7 +93,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleUnexpected(Exception ex) {
-        String traceId = MDC.get("traceId");
+        String traceId = MDC.get(TRACE_ID);
         // Deliberately generic message to the client; the full exception is on the log line
         // that carries the same traceId, which is what Sentry/Kibana correlate on.
         log.error("Unhandled exception, traceId={}", traceId, ex);
