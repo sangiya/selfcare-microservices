@@ -99,6 +99,18 @@ class LoyaltyServiceImplTest {
     }
 
     @Test
+    void getBalance_rethrowsAdapterFailureAndAuditsFailure() {
+        when(customerValidationClient.isValidCustomer(NIC, MSISDN)).thenReturn(true);
+        when(loyaltyCoreAdapter.getBalance(MSISDN))
+                .thenThrow(new LoyaltyCoreIntegrationException("balance lookup failed"));
+
+        assertThatThrownBy(() -> loyaltyService.getBalance(NIC, MSISDN))
+                .isInstanceOf(LoyaltyCoreIntegrationException.class);
+
+        verify(auditRepository).save(argThatAudit(LoyaltyActionType.GET_BALANCE, AuditStatus.FAILURE));
+    }
+
+    @Test
     void transfer_mobileChannel_callsAdapterAndPublishesEvent() {
         when(customerValidationClient.isValidCustomer(NIC, MSISDN)).thenReturn(true);
 

@@ -1,24 +1,34 @@
 package com.selfcare.platform.common.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.lang.reflect.Method;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.core.MethodParameter;
+import org.springframework.context.MessageSourceResolvable;
+import org.springframework.validation.BeanPropertyBindingResult;
+import org.springframework.validation.FieldError;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
 /**
  * Pins the status code a malformed request gets. These used to fall through to the catch-all
@@ -84,6 +94,45 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().success()).isFalse();
         assertThat(response.getBody().error().code()).isEqualTo("BAD_REQUEST");
         assertThat(response.getBody().error().message()).isEqualTo("host is malformed");
+    }
+
+    @Test
+    void methodArgumentValidationErrorsAreCollapsedIntoOneClientMessage() throws NoSuchMethodException {
+        GlobalExceptionHandler handler = new GlobalExceptionHandler();
+        BeanPropertyBindingResult bindingResult = new BeanPropertyBindingResult(new ProbeController.Payload(null), "payload");
+        bindingResult.addError(new FieldError("payload", "channel", "channel is required"));
+        bindingResult.addError(new FieldError("payload", "language", "language is required"));
+
+        Method method = ProbeController.class.getDeclaredMethod("body", ProbeController.Payload.class);
+        MethodArgumentNotValidException exception =
+                new MethodArgumentNotValidException(new MethodParameter(method, 0), bindingResult);
+
+        var response = handler.handleValidation(exception);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().error().code()).isEqualTo("VALIDATION_ERROR");
+        assertThat(response.getBody().error().message())
+                .isEqualTo("channel is required; language is required");
+    }
+
+    @Test
+    void handlerMethodValidationErrorsAreAlsoReportedAsBadRequest() {
+        GlobalExceptionHandler handler = new GlobalExceptionHandler();
+        HandlerMethodValidationException exception = mock(HandlerMethodValidationException.class);
+        MessageSourceResolvable tenantIdError = mock(MessageSourceResolvable.class);
+        MessageSourceResolvable hostError = mock(MessageSourceResolvable.class);
+        when(tenantIdError.getDefaultMessage()).thenReturn("tenantId is required");
+        when(hostError.getDefaultMessage()).thenReturn("host is required");
+        when(exception.getMessage()).thenReturn("validation failed");
+        doReturn(java.util.List.of(tenantIdError, hostError)).when(exception).getAllErrors();
+
+        var response = handler.handleBadRequest(exception, new MockHttpServletRequest("POST", "/probe/resolve"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().error().code()).isEqualTo("VALIDATION_ERROR");
+        assertThat(response.getBody().error().message()).isEqualTo("tenantId is required; host is required");
     }
 
     @RestController
