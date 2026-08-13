@@ -1,6 +1,7 @@
 package com.selfcare.loyalty.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -18,7 +19,7 @@ import org.junit.jupiter.api.Test;
 
 class LoyaltyControllerTest {
 
-    private final LoyaltyService loyaltyService = org.mockito.Mockito.mock(LoyaltyService.class);
+    private final LoyaltyService loyaltyService = mock(LoyaltyService.class);
     private final LoyaltyController controller = new LoyaltyController(loyaltyService);
 
     @Test

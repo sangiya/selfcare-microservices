@@ -74,6 +74,13 @@ class TenantConfigControllerTest {
     }
 
     @Test
+    void resolve_rejectsWhenBothParametersAreNull() {
+        assertThatThrownBy(() -> controller.resolve(null, null))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("Provide either 'host' or 'appFlavorId'");
+    }
+
+    @Test
     void getLayout_mapsDomainToDto() {
         when(tenantConfigService.getLayout("acme-telecom", "dashboard"))
                 .thenReturn(layoutDocument("acme-telecom", "dashboard"));

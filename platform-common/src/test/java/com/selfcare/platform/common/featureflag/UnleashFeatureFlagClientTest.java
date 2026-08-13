@@ -3,6 +3,7 @@ package com.selfcare.platform.common.featureflag;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -22,7 +23,7 @@ class UnleashFeatureFlagClientTest {
 
     @Test
     void isEnabled_passesCurrentTenantIntoTheUnleashContext() {
-        Unleash unleash = org.mockito.Mockito.mock(Unleash.class);
+        Unleash unleash = mock(Unleash.class);
         when(unleash.isEnabled(eq("partner-transfer"), any(UnleashContext.class), eq(false))).thenReturn(true);
         TenantContext.set("acme-telecom");
 
@@ -38,7 +39,7 @@ class UnleashFeatureFlagClientTest {
 
     @Test
     void isEnabled_fallsBackToUnknownTenantWhenNoContextIsSet() {
-        Unleash unleash = org.mockito.Mockito.mock(Unleash.class);
+        Unleash unleash = mock(Unleash.class);
         when(unleash.isEnabled(eq("partner-transfer"), any(UnleashContext.class), eq(true))).thenReturn(false);
 
         UnleashFeatureFlagClient client = new UnleashFeatureFlagClient(unleash);
@@ -52,7 +53,7 @@ class UnleashFeatureFlagClientTest {
 
     @Test
     void isEnabled_returnsDefaultValueWhenUnleashThrows() {
-        Unleash unleash = org.mockito.Mockito.mock(Unleash.class);
+        Unleash unleash = mock(Unleash.class);
         when(unleash.isEnabled(eq("partner-transfer"), any(UnleashContext.class), eq(true)))
                 .thenThrow(new IllegalStateException("unleash unavailable"));
 

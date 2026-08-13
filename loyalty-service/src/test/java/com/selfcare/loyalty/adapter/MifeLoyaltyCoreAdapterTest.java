@@ -26,6 +26,7 @@ import com.selfcare.loyalty.config.MifeRestClientConfig;
 import com.selfcare.loyalty.exception.LoyaltyCoreIntegrationException;
 import com.selfcare.platform.common.adapter.ApiAdapter;
 import java.math.BigDecimal;
+import java.lang.reflect.Method;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -160,6 +161,25 @@ class MifeLoyaltyCoreAdapterTest {
     }
 
     @Test
+    void registerFailsWhenStatusIsMissing() {
+        mife.stubFor(put(urlPathEqualTo(REGISTER_PATH))
+                .willReturn(okJson("{\"transactionNumber\":\"TX-9\"}")));
+
+        assertThatThrownBy(() -> adapter.register(registerCommand()))
+                .isInstanceOf(LoyaltyCoreIntegrationException.class)
+                .hasMessageContaining("Registration failed");
+    }
+
+    @Test
+    void registerWrapsTransportFailures() {
+        mife.stubFor(put(urlPathEqualTo(REGISTER_PATH)).willReturn(serverError()));
+
+        assertThatThrownBy(() -> adapter.register(registerCommand()))
+                .isInstanceOf(LoyaltyCoreIntegrationException.class)
+                .hasMessageContaining(REGISTER_PATH);
+    }
+
+    @Test
     void transferSendsBothSubscribersAndSucceedsOnStatusCodeZero() {
         mife.stubFor(post(urlPathEqualTo(TRANSFER_PATH))
                 .withRequestBody(matchingJsonPath("$.counterAlias", equalTo("transfer-alias")))
@@ -184,6 +204,17 @@ class MifeLoyaltyCoreAdapterTest {
     }
 
     @Test
+    void transferFailsWhenStatusCodeIsMissing() {
+        mife.stubFor(post(urlPathEqualTo(TRANSFER_PATH))
+                .willReturn(okJson("{\"errorDescription\":\"missing status\"}")));
+
+        assertThatThrownBy(() ->
+                        adapter.transferPoints(new TransferCommand(MSISDN, "94779999999", new BigDecimal("25.00"))))
+                .isInstanceOf(LoyaltyCoreIntegrationException.class)
+                .hasMessageContaining("missing status");
+    }
+
+    @Test
     void donateSucceedsOnStatusCodeZero() {
         mife.stubFor(post(urlPathEqualTo(DONATE_PATH))
                 .withRequestBody(matchingJsonPath("$.counterAlias", equalTo("donate-alias")))
@@ -203,6 +234,16 @@ class MifeLoyaltyCoreAdapterTest {
         assertThatThrownBy(() -> adapter.donatePoints(new DonateCommand(MSISDN, "nope", new BigDecimal("50.00"))))
                 .isInstanceOf(LoyaltyCoreIntegrationException.class)
                 .hasMessageContaining("unknown donation alias");
+    }
+
+    @Test
+    void donateFailsWhenStatusCodeIsMissing() {
+        mife.stubFor(post(urlPathEqualTo(DONATE_PATH))
+                .willReturn(okJson("{\"errorDescription\":\"missing status\"}")));
+
+        assertThatThrownBy(() -> adapter.donatePoints(new DonateCommand(MSISDN, "nope", new BigDecimal("50.00"))))
+                .isInstanceOf(LoyaltyCoreIntegrationException.class)
+                .hasMessageContaining("missing status");
     }
 
     @Test
@@ -238,6 +279,13 @@ class MifeLoyaltyCoreAdapterTest {
     @Test
     void historyTreatsANonZeroStatusAsAnEmptyListRatherThanFailingTheWholeLookup() {
         mife.stubFor(post(urlPathEqualTo(HISTORY_PATH)).willReturn(okJson("{\"status\":404}")));
+
+        assertThat(adapter.getHistory(MSISDN, 10).entries()).isEmpty();
+    }
+
+    @Test
+    void historyTreatsAMissingStatusAsAnEmptyListRatherThanFailingTheWholeLookup() {
+        mife.stubFor(post(urlPathEqualTo(HISTORY_PATH)).willReturn(okJson("{\"transactionDetails\":[]}")));
 
         assertThat(adapter.getHistory(MSISDN, 10).entries()).isEmpty();
     }
@@ -282,6 +330,25 @@ class MifeLoyaltyCoreAdapterTest {
                 .isInstanceOf(LoyaltyCoreIntegrationException.class)
                 .hasMessageContaining("empty body")
                 .hasMessageContaining(BALANCE_PATH);
+    }
+
+    @Test
+    void helperConversionsHandleNullsNumbersAndBigDecimals() throws Exception {
+        assertThat(invokeAsInt(null)).isNull();
+        assertThat(invokeAsInt(7)).isEqualTo(7);
+        assertThat(invokeAsDecimal(new BigDecimal("12.34"))).isEqualByComparingTo("12.34");
+    }
+
+    private static Integer invokeAsInt(Object value) throws Exception {
+        Method method = MifeLoyaltyCoreAdapter.class.getDeclaredMethod("asInt", Object.class);
+        method.setAccessible(true);
+        return (Integer) method.invoke(null, value);
+    }
+
+    private static BigDecimal invokeAsDecimal(Object value) throws Exception {
+        Method method = MifeLoyaltyCoreAdapter.class.getDeclaredMethod("asDecimal", Object.class);
+        method.setAccessible(true);
+        return (BigDecimal) method.invoke(null, value);
     }
 
     private static RegisterCommand registerCommand() {

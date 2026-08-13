@@ -36,7 +36,7 @@ class PlatformAutoConfigurationTest {
         FilterRegistrationBean<CorrelationIdFilter> registration = configuration.correlationIdFilter();
 
         assertThat(registration.getFilter()).isInstanceOf(CorrelationIdFilter.class);
-        assertThat(registration.getOrder()).isEqualTo(0);
+        assertThat(registration.getOrder()).isZero();
         assertThat(registration.getUrlPatterns()).containsExactly("/*");
     }
 

@@ -1,5 +1,6 @@
 package com.selfcare.notification.adapter;
 
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import com.selfcare.platform.common.adapter.ApiAdapterRegistry;
@@ -10,8 +11,8 @@ class NotificationAdapterConfigTest {
 
     @Test
     void registerAdapters_registersEveryProviderAdapterInTheRegistry() {
-        ApiAdapterRegistry registry = org.mockito.Mockito.mock(ApiAdapterRegistry.class);
-        NotificationProviderAdapter adapter = org.mockito.Mockito.mock(NotificationProviderAdapter.class);
+        ApiAdapterRegistry registry = mock(ApiAdapterRegistry.class);
+        NotificationProviderAdapter adapter = mock(NotificationProviderAdapter.class);
         NotificationAdapterConfig config = new NotificationAdapterConfig(registry, List.of(adapter));
 
         config.registerAdapters();
