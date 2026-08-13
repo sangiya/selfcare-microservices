@@ -17,7 +17,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 class ResourceServerSecurityConfigTest {
 
     @Test
-    void jwtEnforcedConfig_buildsAProtectedFilterChainAndDecoder() throws Exception {
+    void jwtEnforcedConfig_buildsAProtectedFilterChainAndDecoder() {
         HttpSecurity http = mock(HttpSecurity.class, withSettings().defaultAnswer(Answers.RETURNS_SELF));
         SecurityFilterChain chain = mock(SecurityFilterChain.class);
         doReturn(chain).when(http).build();
@@ -37,7 +37,7 @@ class ResourceServerSecurityConfigTest {
     }
 
     @Test
-    void permitAllLocalDevConfig_buildsAnOpenFilterChain() throws Exception {
+    void permitAllLocalDevConfig_buildsAnOpenFilterChain() {
         HttpSecurity http = mock(HttpSecurity.class, withSettings().defaultAnswer(Answers.RETURNS_SELF));
         SecurityFilterChain chain = mock(SecurityFilterChain.class);
         doReturn(chain).when(http).build();

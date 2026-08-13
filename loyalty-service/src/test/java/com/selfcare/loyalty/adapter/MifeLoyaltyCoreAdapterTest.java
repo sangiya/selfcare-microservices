@@ -5,6 +5,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.put;
 import static com.github.tomakehurst.wiremock.client.WireMock.serverError;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
@@ -168,7 +169,7 @@ class MifeLoyaltyCoreAdapterTest {
 
         adapter.transferPoints(new TransferCommand(MSISDN, "94779999999", new BigDecimal("25.00")));
 
-        mife.verify(1, com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor(urlPathEqualTo(TRANSFER_PATH)));
+        mife.verify(1, postRequestedFor(urlPathEqualTo(TRANSFER_PATH)));
     }
 
     @Test
@@ -191,7 +192,7 @@ class MifeLoyaltyCoreAdapterTest {
 
         adapter.donatePoints(new DonateCommand(MSISDN, "charity", new BigDecimal("50.00")));
 
-        mife.verify(1, com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor(urlPathEqualTo(DONATE_PATH)));
+        mife.verify(1, postRequestedFor(urlPathEqualTo(DONATE_PATH)));
     }
 
     @Test
