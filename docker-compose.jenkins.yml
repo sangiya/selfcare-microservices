@@ -8,6 +8,7 @@
 # Jenkins UI: http://localhost:9090  (not 8080 -- that's already api-gateway in the app stack)
 services:
   jenkins:
+    container_name: microservices-jenkins
     build:
       context: ./ci/jenkins
     # Running the controller as root and giving it the host's docker.sock is a
@@ -19,7 +20,7 @@ services:
       - "9090:8080"
       - "50000:50000" # only needed if you later attach remote agents
     environment:
-      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false -Dhudson.plugins.git.GitSCM.ALLOW_LOCAL_CHECKOUT=true"
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false -Dhudson.plugins.git.GitSCM.ALLOW_LOCAL_CHECKOUT=true -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=86400"
       JENKINS_ADMIN_PASSWORD: "admin"
       CONTAINER_REGISTRY_URL: "local-registry.local"
       SONARQUBE_URL: "http://sonarqube:9000"
@@ -35,6 +36,7 @@ services:
       DEV_CONTENT_URL: "http://host.docker.internal:8085"
       DEV_DAST_BASE_URL: "http://host.docker.internal:8080"
       TESTCONTAINERS_HOST_OVERRIDE: "host.docker.internal"
+      JENKINS_CONTAINER_NAME: "microservices-jenkins"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

@@ -29,6 +29,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
+                deleteDir()
                 checkout scm
                 script {
                     env.IMAGE_TAG = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
@@ -41,8 +42,21 @@ pipeline {
             // Doc 5 sec 6, item 1: unit testing, coverage-gated (jacoco-check in the parent
             // pom fails the build below the threshold -- this stage's failure IS the gate).
             steps {
-                retry(2) {
-                    sh "mvn -B -pl ${params.SERVICES} -am test"
+                script {
+                    retry(2) {
+                        sh """
+                          set -eu
+                          (
+                            while true; do
+                              sleep 30
+                              echo "[keepalive] build-and-test still running at \$(date -Iseconds)"
+                            done
+                          ) &
+                          keepalive_pid=\$!
+                          trap 'kill \$keepalive_pid 2>/dev/null || true' EXIT
+                          mvn -B -pl ${params.SERVICES} -am test
+                        """
+                    }
                 }
             }
             post {
@@ -132,7 +146,7 @@ pipeline {
                     steps {
                         sh '''
                           mkdir -p qa-automation/checkov
-                          docker run --rm --volumes-from "$HOSTNAME" -w "$PWD" bridgecrew/checkov:latest \
+                          docker run --rm --volumes-from "${JENKINS_CONTAINER_NAME:-microservices-jenkins}" -w "$PWD" bridgecrew/checkov:latest \
                             --directory deploy \
                             --skip-check CKV_K8S_43 \
                             --output junitxml \
@@ -285,7 +299,7 @@ pipeline {
                                       else
                                         npm install
                                       fi
-                                      npx playwright install --with-deps chromium firefox webkit
+                                      npx playwright install --with-deps chromium
                                       npm test
                                     '''
                                 }
