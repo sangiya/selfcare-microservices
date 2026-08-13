@@ -64,7 +64,7 @@ pipeline {
                           mvn -f "\$WORKSPACE/pom.xml" -B -pl ${params.SERVICES} -am \\
                             -Dsonar.host.url="\$SONAR_HOST_URL" \\
                             -Dsonar.token="\$SONAR_AUTH_TOKEN" \\
-                            org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
+                            org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar
                         """
                         def reportTask = sh(
                                 script: 'find "$WORKSPACE" -name report-task.txt -print -quit',
