@@ -62,6 +62,8 @@ jobs:
   # A plain Pipeline job keeps the local setup simple, but it polls the mounted git repo so a
   # new local commit is picked up automatically without clicking Build Now each time.
   - script: >
+      def repoUrl = System.getenv('SCM_REPO_URL') ?: 'file:///workspace/microservices'
+      def branchName = System.getenv('SCM_BRANCH') ?: '*/main'
       pipelineJob('selfcare-microservices') {
         triggers {
           scm('H/2 * * * *')
@@ -70,8 +72,8 @@ jobs:
           cpsScm {
             scm {
               git {
-                remote { url('file:///workspace/microservices') }
-                branch('*/main')
+                remote { url(repoUrl) }
+                branch(branchName)
               }
             }
             scriptPath('Jenkinsfile')

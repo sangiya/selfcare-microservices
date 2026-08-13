@@ -153,8 +153,8 @@ whole point of the shared framework.
   coverage bundle-wide -- adjust the threshold as your suite matures.
 - **CI pipeline**: see `Jenkinsfile` at the repo root and `ci/README.md` for what's wired vs.
   what's a TODO. The pipeline now includes SonarQube, OWASP dependency-check, Gitleaks,
-  Checkov, Trivy, REST-Assured, Karate, Pact, Playwright, optional ZAP baseline DAST, and
-  Helm-based deployment. Performance testing remains a TODO pending the k6 workload definitions.
+  Checkov, Trivy, REST-Assured, Karate, Pact, Playwright, k6, optional ZAP baseline DAST, and
+  Helm-based deployment.
 
 ## Where this sits in the document package
 
