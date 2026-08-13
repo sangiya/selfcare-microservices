@@ -15,7 +15,7 @@ FROM aquasec/trivy:latest AS trivy-src
 FROM zricethezav/gitleaks:latest AS gitleaks-src
 FROM grafana/k6:latest AS k6-src
 
-FROM jenkins/jenkins:lts-jdk21
+FROM jenkins/jenkins:lts-jdk25
 
 USER root
 

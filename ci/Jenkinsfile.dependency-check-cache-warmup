@@ -1,0 +1,32 @@
+pipeline {
+    agent { label 'docker' }
+
+    environment {
+        ODC_DATA_DIR = '/var/jenkins_home/dependency-check-data'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps { checkout scm }
+        }
+
+        stage('Warm Dependency-Check Cache') {
+            steps {
+                withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
+                    sh '''
+                      if [ -z "${NVD_API_KEY:-}" ]; then
+                        echo 'NVD_API_KEY is not configured; cannot warm Dependency-Check cache.'
+                        exit 1
+                      fi
+                      mkdir -p "$ODC_DATA_DIR"
+                      echo "Dependency-Check data dir: $ODC_DATA_DIR"
+                      mvn -f "$WORKSPACE/pom.xml" -B \
+                        -DdataDirectory="$ODC_DATA_DIR" \
+                        -DnvdApiKey="$NVD_API_KEY" \
+                        org.owasp:dependency-check-maven:update-only
+                    '''
+                }
+            }
+        }
+    }
+}
