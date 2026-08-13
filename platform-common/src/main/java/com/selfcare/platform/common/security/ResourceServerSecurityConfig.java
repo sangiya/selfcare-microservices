@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -29,8 +30,14 @@ import org.springframework.security.web.SecurityFilterChain;
  * Real environments must always set {@code AUTH_SERVICE_JWK_URI}; every request is completely
  * unauthenticated while this fallback is active, and it logs a loud warning on startup so
  * this is never silently true anywhere it matters.
+ *
+ * <p>Both variants build a servlet {@link SecurityFilterChain} from {@link HttpSecurity}, which
+ * only exists in a servlet web context. Without the condition below, any non-web context — such
+ * as a {@code WebEnvironment.NONE} repository test — fails to start on a missing HttpSecurity
+ * bean rather than simply running without a filter chain it has no use for.
  */
 @Configuration
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 public class ResourceServerSecurityConfig {
 
     @Configuration

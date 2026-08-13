@@ -74,6 +74,14 @@
       <artifactId>spring-kafka-test</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- standalone (shaded) so WireMock's Jetty doesn't collide with the Jetty/Tomcat on the
+         Spring Boot test classpath -->
+    <dependency>
+      <groupId>org.wiremock</groupId>
+      <artifactId>wiremock-standalone</artifactId>
+      <version>${wiremock.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>

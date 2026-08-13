@@ -18,6 +18,29 @@ services:
     ports:
       - "9090:8080"
       - "50000:50000" # only needed if you later attach remote agents
+    environment:
+      # All optional -- casc.yaml falls back to harmless placeholders/defaults if unset, which
+      # is enough for Jenkins to boot fully configured and the pipeline to start.
+      # -Djenkins.install.runSetupWizard=false: skip the setup wizard -- casc.yaml declares the
+      # admin user instead. -Dhudson.plugins.git.GitSCM.ALLOW_LOCAL_CHECKOUT=true: the Git
+      # plugin blocks file:// checkouts by default (anti local-file-exfiltration guard) -- this
+      # repo's whole local setup deliberately relies on file:///workspace/microservices, so opt
+      # back in.
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false -Dhudson.plugins.git.GitSCM.ALLOW_LOCAL_CHECKOUT=true"
+      JENKINS_ADMIN_PASSWORD: "admin" # change this if this container is ever reachable by anyone but you
+      CONTAINER_REGISTRY_URL: "local-registry.local"
+      # Set to a real token from your local SonarQube's My Account > Security > Generate Token
+      # (after registering it under Manage Jenkins > System > SonarQube servers as "sonarqube" /
+      # http://sonarqube:9000), then `docker compose -f docker-compose.jenkins.yml up -d --build`
+      # again, to make the Code Quality/Quality Gate stages actually pass instead of being skipped.
+      SONARQUBE_TOKEN: ""
+      # Testcontainers starts its containers on the HOST daemon (via the docker.sock below), so
+      # their published ports land on the host, not inside this container's network namespace.
+      # Left to itself Testcontainers assumes the default-bridge gateway (172.17.0.1), which
+      # isn't routable from this compose network, and every wait strategy times out on connect.
+      # host.docker.internal is supplied by Docker Desktop; on a plain Linux daemon add
+      # extra_hosts: ["host.docker.internal:host-gateway"] instead.
+      TESTCONTAINERS_HOST_OVERRIDE: "host.docker.internal"
     volumes:
       - jenkins-home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
