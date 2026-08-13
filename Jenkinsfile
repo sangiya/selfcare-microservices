@@ -20,9 +20,9 @@ pipeline {
 
     environment {
         REGISTRY = credentials('container-registry-url')
-        SONAR_TOKEN = credentials('sonarqube-token')
         NVD_API_KEY = credentials('nvd-api-key')
         ODC_DATA_DIR = '/var/jenkins_home/dependency-check-data'
+        SONAR_ANALYSIS_READY = 'false'
     }
 
     stages {
@@ -47,15 +47,36 @@ pipeline {
         stage('Code Quality') {
             // Doc 5 sec 6, item 5.
             steps {
-                withSonarQubeEnv('sonarqube') {
-                    // Call the Sonar Maven plugin by full coordinates so CI does not depend on
-                    // Maven prefix discovery for the non-Apache `sonar` plugin group.
-                    sh "mvn -B -pl ${params.SERVICES} -am org.sonarsource.scanner.maven:sonar-maven-plugin:sonar"
+                script {
+                    withSonarQubeEnv('sonarqube') {
+                        // Run from the workspace root and pass the Jenkins-provided Sonar
+                        // connection details explicitly so the Maven scanner always writes the
+                        // report-task metadata Jenkins needs for waitForQualityGate().
+                        sh """
+                          set -eu
+                          mvn -f "\$WORKSPACE/pom.xml" -B -pl ${params.SERVICES} -am \\
+                            -Dsonar.host.url="\$SONAR_HOST_URL" \\
+                            -Dsonar.token="\$SONAR_AUTH_TOKEN" \\
+                            org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
+                        """
+                        def reportTask = sh(
+                                script: 'find "$WORKSPACE" -name report-task.txt -print -quit',
+                                returnStdout: true
+                        ).trim()
+                        if (!reportTask) {
+                            error("Sonar analysis completed without producing report-task.txt; refusing to run waitForQualityGate().")
+                        }
+                        env.SONAR_ANALYSIS_READY = 'true'
+                        echo "Sonar report task metadata: ${reportTask}"
+                    }
                 }
             }
         }
 
         stage('Quality Gate') {
+            when {
+                expression { env.SONAR_ANALYSIS_READY == 'true' }
+            }
             steps {
                 timeout(time: 10, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true

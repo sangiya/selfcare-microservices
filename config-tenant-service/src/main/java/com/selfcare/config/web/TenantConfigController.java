@@ -3,6 +3,8 @@ package com.selfcare.config.web;
 import com.selfcare.config.domain.LayoutDocument;
 import com.selfcare.config.domain.TenantConfig;
 import com.selfcare.config.service.TenantConfigService;
+import com.selfcare.config.web.dto.LayoutDocumentDto;
+import com.selfcare.config.web.dto.TenantConfigDto;
 import com.selfcare.platform.common.web.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,45 +31,51 @@ public class TenantConfigController {
 
     @GetMapping("/{tenantId}")
     @Operation(summary = "Get an operator's full config by tenant ID")
-    public ApiResponse<TenantConfig> getTenantConfig(@PathVariable String tenantId) {
-        return ApiResponse.ok(tenantConfigService.getTenantConfig(tenantId));
+    public ApiResponse<TenantConfigDto> getTenantConfig(@PathVariable String tenantId) {
+        return ApiResponse.ok(TenantConfigDto.fromDomain(tenantConfigService.getTenantConfig(tenantId)));
     }
 
     @GetMapping("/resolve")
     @Operation(summary = "Resolve a tenant from a web host or a mobile app-flavor/API-key identifier")
-    public ApiResponse<TenantConfig> resolve(
+    public ApiResponse<TenantConfigDto> resolve(
             @RequestParam(required = false) String host,
             @RequestParam(required = false) String appFlavorId) {
         if (host != null && !host.isBlank()) {
-            return ApiResponse.ok(tenantConfigService.resolveByHost(host));
+            return ApiResponse.ok(TenantConfigDto.fromDomain(tenantConfigService.resolveByHost(host)));
         }
         if (appFlavorId != null && !appFlavorId.isBlank()) {
-            return ApiResponse.ok(tenantConfigService.resolveByAppFlavor(appFlavorId));
+            return ApiResponse.ok(TenantConfigDto.fromDomain(tenantConfigService.resolveByAppFlavor(appFlavorId)));
         }
         throw new com.selfcare.platform.common.web.BadRequestException("Provide either 'host' or 'appFlavorId'");
     }
 
     @GetMapping("/{tenantId}/layout/{screenKey}")
     @Operation(summary = "Get the widget layout for one operator's screen")
-    public ApiResponse<LayoutDocument> getLayout(@PathVariable String tenantId, @PathVariable String screenKey) {
-        return ApiResponse.ok(tenantConfigService.getLayout(tenantId, screenKey));
+    public ApiResponse<LayoutDocumentDto> getLayout(@PathVariable String tenantId, @PathVariable String screenKey) {
+        return ApiResponse.ok(LayoutDocumentDto.fromDomain(tenantConfigService.getLayout(tenantId, screenKey)));
     }
 
     @PutMapping("/{tenantId}")
     @PreAuthorize("hasAuthority('SCOPE_platform-admin')")
     @Operation(summary = "Create/update an operator's config (platform-admin scope only)")
-    public ApiResponse<TenantConfig> upsertTenantConfig(@PathVariable String tenantId, @Valid @RequestBody TenantConfig config) {
+    public ApiResponse<TenantConfigDto> upsertTenantConfig(
+            @PathVariable String tenantId,
+            @Valid @RequestBody TenantConfigDto config) {
         config.setTenantId(tenantId);
-        return ApiResponse.ok(tenantConfigService.upsertTenantConfig(config));
+        TenantConfig saved = tenantConfigService.upsertTenantConfig(config.toDomain());
+        return ApiResponse.ok(TenantConfigDto.fromDomain(saved));
     }
 
     @PutMapping("/{tenantId}/layout/{screenKey}")
     @PreAuthorize("hasAuthority('SCOPE_platform-admin')")
     @Operation(summary = "Create/update an operator's screen layout (platform-admin scope only)")
-    public ApiResponse<LayoutDocument> upsertLayout(
-            @PathVariable String tenantId, @PathVariable String screenKey, @Valid @RequestBody LayoutDocument layout) {
+    public ApiResponse<LayoutDocumentDto> upsertLayout(
+            @PathVariable String tenantId,
+            @PathVariable String screenKey,
+            @Valid @RequestBody LayoutDocumentDto layout) {
         layout.setTenantId(tenantId);
         layout.setScreenKey(screenKey);
-        return ApiResponse.ok(tenantConfigService.upsertLayout(layout));
+        LayoutDocument saved = tenantConfigService.upsertLayout(layout.toDomain());
+        return ApiResponse.ok(LayoutDocumentDto.fromDomain(saved));
     }
 }

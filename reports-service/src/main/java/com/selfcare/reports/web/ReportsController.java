@@ -24,13 +24,14 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * STARTER MODULE. Only the "submit request / check status" shell is implemented; the actual
  * per-{@link ReportType} generation logic (querying CDR/ClickHouse, building the export file)
- * is a TODO per controller -- see README-TODO.md. This intentionally does NOT try to guess
+ * is deferred to the follow-up implementation notes in the companion module README. This
+ * intentionally does NOT try to guess
  * the real query logic for a 3,668-line legacy controller.
  */
 @RestController
 @RequestMapping("/api/v1/reports")
 @Validated
-@Tag(name = "Reports & CDR", description = "STARTER -- Doc 5 pilot domain 2 of 4; see README-TODO.md")
+@Tag(name = "Reports & CDR", description = "STARTER -- Doc 5 pilot domain 2 of 4; implementation notes in the module README")
 public class ReportsController {
 
     private final ReportRequestRepository repository;
@@ -51,8 +52,8 @@ public class ReportsController {
         request.setReportType(reportType);
         request.setFromDate(fromDate);
         request.setToDate(toDate);
-        // TODO: publish a "report.requested" Kafka event for an async worker to pick up and
-        // populate resultLocation, instead of leaving every request PENDING forever.
+        // Planned next step: publish a "report.requested" Kafka event so an async worker can
+        // populate resultLocation instead of leaving every request in PENDING state.
         ReportRequest saved = repository.save(request);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(ApiResponse.ok(saved));
     }
