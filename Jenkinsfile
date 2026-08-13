@@ -67,15 +67,19 @@ pipeline {
             parallel {
                 stage('Dependency check (SCA)') {
                     steps {
-                        sh """
-                          if [ -z "\${NVD_API_KEY:-}" ]; then
-                            echo 'SKIPPED: NVD_API_KEY is not configured; set it to enable OWASP Dependency-Check with live NVD data.'
-                            exit 0
-                          fi
-                          mvn -B -pl ${params.SERVICES} -am \
-                            -DnvdApiKey="\$NVD_API_KEY" \
-                            org.owasp:dependency-check-maven:check
-                        """
+                        withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
+                            sh """
+                              if [ -z "\${NVD_API_KEY:-}" ]; then
+                                echo 'SKIPPED: NVD_API_KEY is not configured; set it to enable OWASP Dependency-Check with live NVD data.'
+                                exit 0
+                              fi
+                              echo "NVD_API_KEY length: \${#NVD_API_KEY}"
+                              echo "NVD_API_KEY sha256 prefix: \$(printf '%s' \"\$NVD_API_KEY\" | sha256sum | cut -c1-12)"
+                              mvn -B -pl ${params.SERVICES} -am \
+                                -DnvdApiKey="\$NVD_API_KEY" \
+                                org.owasp:dependency-check-maven:check
+                            """
+                        }
                     }
                 }
                 stage('Secrets scan (Gitleaks)') {
