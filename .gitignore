@@ -17,5 +17,6 @@ allure-report/
 */allure-report/
 allure-results/
 */allure-results/
+qa-automation/performance/results/
 
 .DS_Store

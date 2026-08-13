@@ -23,6 +23,8 @@ services:
       JENKINS_ADMIN_PASSWORD: "admin"
       CONTAINER_REGISTRY_URL: "local-registry.local"
       SONARQUBE_TOKEN: ""
+      SCM_REPO_URL: "file:///workspace/microservices"
+      SCM_BRANCH: "*/main"
       DEV_GATEWAY_URL: "http://host.docker.internal:8080"
       DEV_DAST_BASE_URL: "http://host.docker.internal:8080"
       TESTCONTAINERS_HOST_OVERRIDE: "host.docker.internal"

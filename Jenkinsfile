@@ -237,9 +237,31 @@ pipeline {
 
         stage('Performance Test (Dev)') {
             // Doc 5 sec 6, item 7.
-            when { branch 'main' }
+            when {
+                anyOf {
+                    branch 'main'
+                    expression { return (env.DEV_GATEWAY_URL ?: '').trim() }
+                }
+            }
+            environment {
+                PERF_BASE_URL = "${env.DEV_GATEWAY_URL ?: 'http://api-gateway.dev.svc.cluster.local:8080'}"
+                PERF_TENANT_ID = "${env.TEST_TENANT_ID ?: 'acme-telecom'}"
+            }
             steps {
-                echo 'TODO: run k6 against each changed service, compare to its legacy-PHP baseline (Doc 5 sec 6, item 7).'
+                sh '''
+                  mkdir -p qa-automation/performance/results
+                  k6 run \
+                    --summary-export qa-automation/performance/results/k6-summary.json \
+                    -e BASE_URL="$PERF_BASE_URL" \
+                    -e TENANT_ID="$PERF_TENANT_ID" \
+                    qa-automation/performance/gateway-load.js \
+                    | tee qa-automation/performance/results/k6-console.log
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'qa-automation/performance/results/**', allowEmptyArchive: true
+                }
             }
         }
     }

@@ -13,6 +13,7 @@
 # path that's already been pulling every other image fine all session.
 FROM aquasec/trivy:latest AS trivy-src
 FROM zricethezav/gitleaks:latest AS gitleaks-src
+FROM grafana/k6:latest AS k6-src
 
 FROM jenkins/jenkins:lts-jdk21
 
@@ -47,6 +48,9 @@ COPY --from=trivy-src /usr/local/bin/trivy /usr/local/bin/trivy
 
 # --- Gitleaks (secrets scanning, Security Scans stage) ---
 COPY --from=gitleaks-src /usr/bin/gitleaks /usr/local/bin/gitleaks
+
+# --- k6 (performance/load testing, Performance Test stage) ---
+COPY --from=k6-src /usr/bin/k6 /usr/local/bin/k6
 
 # --- Node.js (only for the `npx conventional-changelog` post-build changelog step) ---
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \

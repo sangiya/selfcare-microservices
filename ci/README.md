@@ -50,21 +50,19 @@ pipeline job.
    labeled `docker`, the `container-registry-url` and `sonarqube-token` credentials already
    exist (placeholder values), the `selfcare-platform-shared-lib` global library is already
    registered, and a Pipeline job named `selfcare-microservices` already exists pointed at
-   `file:///workspace/microservices` / `Jenkinsfile`.
+   `${SCM_REPO_URL:-file:///workspace/microservices}` / `Jenkinsfile`.
 4. Open the `selfcare-microservices` job and **Build Now.** Expect `Checkout` ->
    `Build & Unit Test` -> (`Code Quality` + `Quality Gate` if SonarQube is wired up, otherwise
-   this is where it'll stop) -> `Security Scans` -> `Package & Scan Images` to actually run;
-   the five `when { branch 'main' }` stages (`Push Images`, `Deploy to Dev`, `QA Automation
-   (Dev)`, `Performance Test (Dev)`) show as skipped -- this is a plain Pipeline job, not
-   Multibranch, specifically so `BRANCH_NAME` stays unset and those stages (which need a real
-   registry/k8s cluster this laptop doesn't have) don't attempt to run.
+   this is where it'll stop) -> `Security Scans` -> `Package & Scan Images` to actually run.
+   `Push Images` and `Deploy to Dev` still need a real main-branch promotion path, registry, and
+   kube context; `QA Automation (Dev)`, `DAST (ZAP Baseline)`, and `Performance Test (Dev)` can
+   also run locally if you set `DEV_GATEWAY_URL=http://host.docker.internal:8080`.
 
-   **To actually exercise the QA Automation suites** without standing up a real registry/
-   cluster: run them directly against your local `docker compose --profile app up -d --build`
-   stack per `qa-automation/README.md` (fastest, no Jenkins changes needed), or temporarily
-   remove that stage's `when { branch 'main' }` block and point its `GATEWAY_URL`/`WEB_BASE_URL`
-   env vars at `http://host.docker.internal:8080` etc. so the Jenkins container can reach your
-   docker-compose services.
+   **To make Jenkins pick up real GitLab pushes automatically**, set `SCM_REPO_URL` to your
+   GitLab repository URL instead of the local `file:///workspace/microservices` default. The job
+   already polls SCM every 2 minutes, so new pushed commits are picked up automatically without a
+   manual Build Now click. If you want instant rather than polling-based pickup, add your normal
+   GitLab webhook/Jenkins integration on top of this.
 
 **The one deliberately-manual step:** registering the SonarQube server itself. The SonarQube
 Jenkins plugin's JCasC support has a history of breaking across plugin-version combinations
