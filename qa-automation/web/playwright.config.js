@@ -20,8 +20,8 @@ module.exports = defineConfig({
     video: 'retain-on-failure',
   },
   projects: [
+    // The repo contains backend-only gateway smoke checks plus a placeholder UI spec.
+    // Until a real web frontend exists here, cross-browser duplication adds cost but no signal.
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
 });

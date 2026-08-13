@@ -251,6 +251,11 @@ pipeline {
                 // Override these per-environment (e.g. via Jenkins job/folder-level env vars)
                 // if the dev gateway/web app aren't reachable at these defaults from the agent.
                 GATEWAY_URL = "${env.DEV_GATEWAY_URL ?: 'http://api-gateway.dev.svc.cluster.local:8080'}"
+                LOYALTY_URL = "${env.DEV_LOYALTY_URL ?: 'http://loyalty-service.dev.svc.cluster.local:8082'}"
+                REPORTS_URL = "${env.DEV_REPORTS_URL ?: 'http://reports-service.dev.svc.cluster.local:8083'}"
+                NOTIFICATION_URL = "${env.DEV_NOTIFICATION_URL ?: 'http://notification-service.dev.svc.cluster.local:8084'}"
+                CONTENT_URL = "${env.DEV_CONTENT_URL ?: 'http://content-service.dev.svc.cluster.local:8085'}"
+                CONFIG_TENANT_URL = "${env.DEV_CONFIG_TENANT_URL ?: 'http://config-tenant-service.dev.svc.cluster.local:8081'}"
                 WEB_BASE_URL = "${env.DEV_WEB_BASE_URL ?: 'http://web-app.dev.svc.cluster.local:3000'}"
             }
             steps {
@@ -273,15 +278,17 @@ pipeline {
                         },
                         'Web (Playwright)': {
                             dir('qa-automation/web') {
-                                sh '''
-                                  if [ -f package-lock.json ]; then
-                                    npm ci
-                                  else
-                                    npm install
-                                  fi
-                                  npx playwright install --with-deps chromium firefox webkit
-                                  npm test
-                                '''
+                                withEnv(['NODE_OPTIONS=--dns-result-order=ipv4first']) {
+                                    sh '''
+                                      if [ -f package-lock.json ]; then
+                                        npm ci
+                                      else
+                                        npm install
+                                      fi
+                                      npx playwright install --with-deps chromium firefox webkit
+                                      npm test
+                                    '''
+                                }
                             }
                         },
                         'Mobile (Detox)': {
