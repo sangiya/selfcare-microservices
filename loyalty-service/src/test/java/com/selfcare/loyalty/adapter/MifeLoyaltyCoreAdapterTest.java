@@ -2,6 +2,7 @@ package com.selfcare.loyalty.adapter;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.put;
@@ -269,6 +270,17 @@ class MifeLoyaltyCoreAdapterTest {
                 .willReturn(okJson("{\"status\":\"OK\",\"errorDesc\":\"bad payload\"}")));
 
         assertThatThrownBy(() -> adapter.getBalance(MSISDN)).isInstanceOf(LoyaltyCoreIntegrationException.class);
+    }
+
+    @Test
+    void emptyResponseBodyIsReportedAsAnIntegrationFailure() {
+        mife.stubFor(post(urlPathEqualTo(BALANCE_PATH))
+                .willReturn(aResponse().withStatus(200)));
+
+        assertThatThrownBy(() -> adapter.getBalance(MSISDN))
+                .isInstanceOf(LoyaltyCoreIntegrationException.class)
+                .hasMessageContaining("empty body")
+                .hasMessageContaining(BALANCE_PATH);
     }
 
     private static RegisterCommand registerCommand() {
