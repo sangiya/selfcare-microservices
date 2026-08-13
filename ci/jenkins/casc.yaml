@@ -1,0 +1,78 @@
+# Jenkins Configuration as Code (JCasC) -- everything from the manual setup steps EXCEPT
+# registering a SonarQube server (that plugin's JCasC support is genuinely flaky across
+# versions -- see ci/README.md -- so it stays a one-time manual step; the credential it needs
+# is still created automatically below).
+jenkins:
+  numExecutors: 2
+  # Matches `agent { label 'docker' }` in the root Jenkinsfile -- this repo has no separate
+  # build agent locally, so the controller itself needs to satisfy that label.
+  labelString: "docker"
+  # Skips the "create admin user" setup wizard entirely (paired with
+  # -Djenkins.install.runSetupWizard=false in docker-compose.jenkins.yml) by declaring one admin
+  # user here instead -- change JENKINS_ADMIN_PASSWORD from the default if this ever runs
+  # anywhere reachable by anyone but you.
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "${JENKINS_ADMIN_PASSWORD:-admin}"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - string:
+              scope: GLOBAL
+              id: "container-registry-url"
+              secret: "${CONTAINER_REGISTRY_URL:-local-registry.local}"
+              description: >-
+                Placeholder is fine locally -- nothing actually gets pushed unless Jenkins sets
+                BRANCH_NAME=main, which the plain Pipeline job created below never does.
+          - string:
+              scope: GLOBAL
+              id: "sonarqube-token"
+              secret: "${SONARQUBE_TOKEN:-not-set-yet}"
+              description: >-
+                Set the SONARQUBE_TOKEN env var (docker-compose.jenkins.yml) to a real token from
+                your local SonarQube's My Account > Security > Generate Token, then recreate this
+                container, to make the Code Quality/Quality Gate stages actually pass.
+
+unclassified:
+  globalLibraries:
+    libraries:
+      - name: "selfcare-platform-shared-lib"
+        defaultVersion: "main"
+        implicit: false
+        allowVersionOverride: true
+        includeInChangesets: false
+        retriever:
+          modernSCM:
+            scm:
+              git:
+                # Prepared by init.groovy.d/prepare-shared-lib.groovy on first boot: a mirror of
+                # this repo's jenkins/ subdirectory as its own tiny git repo, since global
+                # libraries need vars/ at the checkout root.
+                remote: "file:///var/jenkins_home/shared-lib-src"
+
+jobs:
+  # A plain Pipeline job (not Multibranch) deliberately -- that's what keeps BRANCH_NAME unset
+  # locally, which is what naturally skips Push Images/Deploy to Dev/QA Automation/Performance
+  # Test, since none of the infrastructure those need exists on a laptop.
+  - script: >
+      pipelineJob('selfcare-microservices') {
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote { url('file:///workspace/microservices') }
+                branch('*/main')
+              }
+            }
+            scriptPath('Jenkinsfile')
+          }
+        }
+      }

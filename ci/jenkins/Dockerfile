@@ -5,6 +5,15 @@
 # cluster. This image exists purely so `agent { label 'docker' }` in the root Jenkinsfile
 # has somewhere to actually run locally, with every CLI tool ci/README.md says it needs
 # (Docker, Maven, Helm, Trivy, Gitleaks) baked in.
+
+# Trivy and Gitleaks are pulled as their own published images and their binaries lifted out
+# via COPY --from, rather than curl-ing release tarballs straight from GitHub -- some networks
+# (this one included, apparently) let github.com/api.github.com through fine but flake on the
+# actual release-asset CDN. Going through `docker pull` instead reuses the exact same registry
+# path that's already been pulling every other image fine all session.
+FROM aquasec/trivy:latest AS trivy-src
+FROM zricethezav/gitleaks:latest AS gitleaks-src
+
 FROM jenkins/jenkins:lts-jdk21
 
 USER root
@@ -14,12 +23,12 @@ USER root
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
     && install -m 0755 -d /etc/apt/keyrings \
-    && curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc \
+    && curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc \
     && chmod a+r /etc/apt/keyrings/docker.asc \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
        > /etc/apt/sources.list.d/docker.list \
     && apt-get update \
-    && apt-get install -y --no-install-recommends docker-ce-cli \
+    && apt-get install -y --no-install-recommends docker-ce-cli git \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Maven (for the Build & Unit Test / Code Quality / Security Scans stages) ---
@@ -28,27 +37,29 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Helm (for the Deploy to Dev stage) ---
-RUN curl -fsSL -o /tmp/get-helm-3 https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
+RUN curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors -o /tmp/get-helm-3 https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
     && chmod +x /tmp/get-helm-3 \
     && /tmp/get-helm-3 \
     && rm /tmp/get-helm-3
 
 # --- Trivy (container image scanning, Package & Scan Images stage) ---
-RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-      | sh -s -- -b /usr/local/bin
+COPY --from=trivy-src /usr/local/bin/trivy /usr/local/bin/trivy
 
 # --- Gitleaks (secrets scanning, Security Scans stage) ---
-# Pin a known-good version rather than "latest" so this build stays reproducible; bump as needed.
-ARG GITLEAKS_VERSION=8.30.1
-RUN curl -fsSL -o /tmp/gitleaks.tar.gz \
-      "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-    && tar xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks \
-    && rm /tmp/gitleaks.tar.gz
+COPY --from=gitleaks-src /usr/bin/gitleaks /usr/local/bin/gitleaks
 
 # --- Node.js (only for the `npx conventional-changelog` post-build changelog step) ---
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
+
+# --- Configuration as Code: everything from node label to credentials to the shared library
+# to the pipeline job itself, applied automatically on startup -- no manual setup-wizard
+# clicking required. See casc.yaml for what's actually configured and why SonarQube server
+# registration is the one deliberate exception. ---
+ENV CASC_JENKINS_CONFIG=/usr/share/jenkins/casc.yaml
+COPY casc.yaml /usr/share/jenkins/casc.yaml
+COPY init.groovy.d/ /usr/share/jenkins/ref/init.groovy.d/
 
 USER jenkins
 
@@ -59,6 +70,8 @@ RUN jenkins-plugin-cli --plugins \
       git \
       docker-workflow \
       pipeline-groovy-lib \
+      job-dsl \
+      configuration-as-code \
       junit \
       jacoco \
       sonar \
