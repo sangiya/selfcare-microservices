@@ -46,7 +46,9 @@ pipeline {
             // Doc 5 sec 6, item 5.
             steps {
                 withSonarQubeEnv('sonarqube') {
-                    sh "mvn -B -pl ${params.SERVICES} -am sonar:sonar"
+                    // Call the Sonar Maven plugin by full coordinates so CI does not depend on
+                    // Maven prefix discovery for the non-Apache `sonar` plugin group.
+                    sh "mvn -B -pl ${params.SERVICES} -am org.sonarsource.scanner.maven:sonar-maven-plugin:sonar"
                 }
             }
         }

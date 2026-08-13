@@ -35,8 +35,8 @@ both files for what a real setup does differently: separate build agents, no roo
 registry/cluster).
 
 Setup is almost entirely automatic via Jenkins Configuration as Code (`ci/jenkins/casc.yaml`)
-and a startup script (`ci/jenkins/init.groovy.d/prepare-shared-lib.groovy`) -- no manual UI
-clicking to label the node, add credentials, register the shared library, or create the
+and startup scripts in `ci/jenkins/init.groovy.d/` -- no manual UI clicking to label the node,
+add credentials, register the shared library, register the local SonarQube server, or create the
 pipeline job.
 
 1. Make sure this repo is an actual git repository (`git init && git add -A && git commit -m
@@ -48,12 +48,14 @@ pipeline job.
    `JENKINS_ADMIN_PASSWORD` to) -- no unlock screen, no setup wizard, no plugin selection: all
    of that is skipped/declared already. By the time you log in, the built-in node is already
    labeled `docker`, the `container-registry-url` and `sonarqube-token` credentials already
-   exist (placeholder values), the `selfcare-platform-shared-lib` global library is already
-   registered, and a Pipeline job named `selfcare-microservices` already exists pointed at
-   `${SCM_REPO_URL:-file:///workspace/microservices}` / `Jenkinsfile`.
+   exist (placeholder values), the `sonarqube` server entry is already registered against
+   `${SONARQUBE_URL:-http://sonarqube:9000}`, the `selfcare-platform-shared-lib` global library
+   is already registered, and a Pipeline job named `selfcare-microservices` already exists
+   pointed at `${SCM_REPO_URL:-file:///workspace/microservices}` / `Jenkinsfile`.
 4. Open the `selfcare-microservices` job and **Build Now.** Expect `Checkout` ->
-   `Build & Unit Test` -> (`Code Quality` + `Quality Gate` if SonarQube is wired up, otherwise
-   this is where it'll stop) -> `Security Scans` -> `Package & Scan Images` to actually run.
+   `Build & Unit Test` -> (`Code Quality` + `Quality Gate` if `SONARQUBE_TOKEN` is set to a real
+   token, otherwise this is where it'll stop) -> `Security Scans` -> `Package & Scan Images` to
+   actually run.
    `Push Images` and `Deploy to Dev` still need a real main-branch promotion path, registry, and
    kube context; `QA Automation (Dev)`, `DAST (ZAP Baseline)`, and `Performance Test (Dev)` can
    also run locally if you set `DEV_GATEWAY_URL=http://host.docker.internal:8080`.
@@ -64,13 +66,9 @@ pipeline job.
    manual Build Now click. If you want instant rather than polling-based pickup, add your normal
    GitLab webhook/Jenkins integration on top of this.
 
-**The one deliberately-manual step:** registering the SonarQube server itself. The SonarQube
-Jenkins plugin's JCasC support has a history of breaking across plugin-version combinations
-(see the linked GitHub issues below), so it's not worth automating for a throwaway local
-instance. If you brought up `--profile sonar`: open http://localhost:9000 (default login
-admin/admin, it'll make you change it), **My Account > Security > Generate Token**, then in
-Jenkins go to **Manage Jenkins > System > SonarQube servers**, add one named `sonarqube`, URL
-`http://sonarqube:9000`, and pick the `sonarqube-token` credential (or set the token via the
-`SONARQUBE_TOKEN` env var in `docker-compose.jenkins.yml` and recreate the container instead of
-editing the credential by hand). Skip this entirely and the pipeline still runs fine up through
-`Build & Unit Test` -- it'll just stop at `Code Quality`.
+If you brought up `--profile sonar`: open http://localhost:9000 (default login `admin/admin`,
+it will make you change it), generate a token under **My Account > Security**, put that token in
+`SONARQUBE_TOKEN` in `docker-compose.jenkins.yml`, and recreate Jenkins. The `sonarqube` server
+entry itself is registered automatically at startup; the token is the only part you still need
+to supply. If you skip that entirely, the pipeline still runs fine up through `Build & Unit
+Test` -- it will just stop at `Code Quality` when the scanner tries to authenticate.
