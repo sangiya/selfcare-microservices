@@ -86,3 +86,22 @@ jobs:
           }
         }
       }
+  - script: |
+      def repoUrl = System.getenv('SCM_REPO_URL') ?: 'file:///workspace/microservices'
+      def branchName = System.getenv('SCM_BRANCH') ?: '*/main'
+      pipelineJob('dependency-check-cache-warmup') {
+        triggers {
+          cron('H H * * *')
+        }
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote { url(repoUrl) }
+                branch(branchName)
+              }
+            }
+            scriptPath('ci/Jenkinsfile.dependency-check-cache-warmup')
+          }
+        }
+      }

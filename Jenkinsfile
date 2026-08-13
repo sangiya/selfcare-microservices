@@ -22,6 +22,7 @@ pipeline {
         REGISTRY = credentials('container-registry-url')
         SONAR_TOKEN = credentials('sonarqube-token')
         NVD_API_KEY = credentials('nvd-api-key')
+        ODC_DATA_DIR = '/var/jenkins_home/dependency-check-data'
     }
 
     stages {
@@ -70,18 +71,26 @@ pipeline {
                         withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
                             sh """
                               cd "\$WORKSPACE"
+                              mkdir -p "\$ODC_DATA_DIR"
                               echo "SCA workspace: \$WORKSPACE"
+                              echo "Dependency-Check data dir: \$ODC_DATA_DIR"
                               pwd
                               ls -la pom.xml
                               if [ -z "\${NVD_API_KEY:-}" ]; then
                                 echo 'SKIPPED: NVD_API_KEY is not configured; set it to enable OWASP Dependency-Check with live NVD data.'
                                 exit 0
                               fi
+                              if [ -z "\$(find "\$ODC_DATA_DIR" -mindepth 1 -print -quit 2>/dev/null)" ]; then
+                                echo 'Dependency-Check cache is empty.'
+                                echo 'Run the Jenkins job dependency-check-cache-warmup once, or wait for its nightly schedule, then rerun this pipeline.'
+                                exit 1
+                              fi
                               echo "NVD_API_KEY length: \${#NVD_API_KEY}"
                               echo "NVD_API_KEY sha256 prefix: \$(printf '%s' \"\$NVD_API_KEY\" | sha256sum | cut -c1-12)"
                               mvn -f "\$WORKSPACE/pom.xml" -B -pl ${params.SERVICES} -am \
-                                -DnvdApiKey="\$NVD_API_KEY" \
-                                org.owasp:dependency-check-maven:check
+                                -DdataDirectory="\$ODC_DATA_DIR" \
+                                -DautoUpdate=false \
+                                org.owasp:dependency-check-maven:aggregate
                             """
                         }
                     }
