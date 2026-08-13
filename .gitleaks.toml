@@ -9,3 +9,14 @@ paths = [
   '''^\.idea/''',
   '''^\.vscode/'''
 ]
+
+[[allowlists]]
+description = "Generated QA and build artifacts are not source files and produce false positives"
+paths = [
+  '''(^|.*/)target/''',
+  '''^qa-automation/allure-report/''',
+  '''^qa-automation/web/playwright-report/''',
+  '''^qa-automation/web/test-results/''',
+  '''^qa-automation/checkov/''',
+  '''^qa/'''
+]
