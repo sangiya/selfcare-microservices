@@ -21,6 +21,7 @@ pipeline {
     environment {
         REGISTRY = credentials('container-registry-url')
         SONAR_TOKEN = credentials('sonarqube-token')
+        NVD_API_KEY = credentials('nvd-api-key')
     }
 
     stages {

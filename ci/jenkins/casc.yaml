@@ -39,6 +39,13 @@ credentials:
                 Set the SONARQUBE_TOKEN env var (docker-compose.jenkins.yml) to a real token from
                 your local SonarQube's My Account > Security > Generate Token, then recreate this
                 container so the auto-registered `sonarqube` server uses it.
+          - string:
+              scope: GLOBAL
+              id: "nvd-api-key"
+              secret: "${NVD_API_KEY:-}"
+              description: >-
+                Optional NVD API key for OWASP Dependency-Check. Leave empty to skip the live NVD
+                update step in local Jenkins runs.
 
 unclassified:
   globalLibraries:
