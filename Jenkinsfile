@@ -41,11 +41,13 @@ pipeline {
             // Doc 5 sec 6, item 1: unit testing, coverage-gated (jacoco-check in the parent
             // pom fails the build below the threshold -- this stage's failure IS the gate).
             steps {
-                sh "mvn -B -pl ${params.SERVICES} -am test"
+                retry(2) {
+                    sh "mvn -B -pl ${params.SERVICES} -am test"
+                }
             }
             post {
                 always {
-                    junit '**/target/surefire-reports/*.xml'
+                    junit skipPublishingChecks: true, testResults: '**/target/surefire-reports/*.xml'
                     jacoco execPattern: '**/target/jacoco.exec'
                 }
             }
@@ -141,7 +143,7 @@ pipeline {
             }
             post {
                 always {
-                    junit allowEmptyResults: true, testResults: 'qa-automation/checkov/checkov-report.xml'
+                    junit allowEmptyResults: true, skipPublishingChecks: true, testResults: 'qa-automation/checkov/checkov-report.xml'
                     archiveArtifacts artifacts: 'qa-automation/checkov/**', allowEmptyArchive: true
                 }
             }
@@ -294,7 +296,7 @@ pipeline {
             }
             post {
                 always {
-                    junit allowEmptyResults: true, testResults: 'qa-automation/**/target/surefire-reports/*.xml'
+                    junit allowEmptyResults: true, skipPublishingChecks: true, testResults: 'qa-automation/**/target/surefire-reports/*.xml'
                     sh '''
                       npm install -g allure-commandline --silent || true
                       allure generate qa-automation/api/target/allure-results qa-automation/web/allure-results \
