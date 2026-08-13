@@ -21,6 +21,9 @@
   Promotion to QA/staging/prod (Doc 2 sec 6) is deliberately a separate, gated pipeline --
   extend this file or add `Jenkinsfile.promote` once the QA automation suites referenced in the
   `QA Automation (Dev)` stage exist.
+- **`QA Automation (Dev)`** now really runs the API (REST-Assured) and web (Playwright) suites
+  from `qa-automation/` -- see `qa-automation/README.md` for the full toolchain, what's real
+  today vs. a placeholder, and how to run each suite standalone without Jenkins at all.
 
 ## Running Jenkins locally against this repo
 
@@ -51,9 +54,17 @@ pipeline job.
 4. Open the `selfcare-microservices` job and **Build Now.** Expect `Checkout` ->
    `Build & Unit Test` -> (`Code Quality` + `Quality Gate` if SonarQube is wired up, otherwise
    this is where it'll stop) -> `Security Scans` -> `Package & Scan Images` to actually run;
-   the four `when { branch 'main' }` stages show as skipped -- this is a plain Pipeline job, not
+   the five `when { branch 'main' }` stages (`Push Images`, `Deploy to Dev`, `QA Automation
+   (Dev)`, `Performance Test (Dev)`) show as skipped -- this is a plain Pipeline job, not
    Multibranch, specifically so `BRANCH_NAME` stays unset and those stages (which need a real
-   registry/k8s cluster/test suites this laptop doesn't have) don't attempt to run.
+   registry/k8s cluster this laptop doesn't have) don't attempt to run.
+
+   **To actually exercise the QA Automation suites** without standing up a real registry/
+   cluster: run them directly against your local `docker compose --profile app up -d --build`
+   stack per `qa-automation/README.md` (fastest, no Jenkins changes needed), or temporarily
+   remove that stage's `when { branch 'main' }` block and point its `GATEWAY_URL`/`WEB_BASE_URL`
+   env vars at `http://host.docker.internal:8080` etc. so the Jenkins container can reach your
+   docker-compose services.
 
 **The one deliberately-manual step:** registering the SonarQube server itself. The SonarQube
 Jenkins plugin's JCasC support has a history of breaking across plugin-version combinations

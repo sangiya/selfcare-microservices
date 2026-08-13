@@ -11,6 +11,7 @@
 
 pipeline {
     agent { label 'docker' }
+    options { skipDefaultCheckout(true) }
 
     parameters {
         string(name: 'SERVICES', defaultValue: 'platform-common,config-tenant-service,api-gateway,loyalty-service,reports-service,notification-service,content-service',
@@ -67,6 +68,23 @@ pipeline {
                 stage('Secrets scan (Gitleaks)') {
                     steps { sh 'gitleaks detect --source . --no-git -v --exit-code 1' }
                 }
+                stage('IaC scan (Checkov)') {
+                    steps {
+                        sh '''
+                          mkdir -p qa-automation/checkov
+                          docker run --rm -v "$PWD":/workspace -w /workspace bridgecrew/checkov:latest \
+                            --directory deploy \
+                            --output junitxml \
+                            --output-file-path console,qa-automation/checkov/checkov-report.xml
+                        '''
+                    }
+                }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: 'qa-automation/checkov/checkov-report.xml'
+                    archiveArtifacts artifacts: 'qa-automation/checkov/**', allowEmptyArchive: true
+                }
             }
         }
 
@@ -120,11 +138,100 @@ pipeline {
 
         stage('QA Automation (Dev)') {
             // Doc 5 sec 6, items 2-4: backend/API, frontend, and QA/E2E automation run against
-            // the environment just deployed above. Placeholder invocation -- point this at your
-            // Playwright/RestAssured/Detox suites once they exist alongside the FE repos.
-            when { branch 'main' }
+            // the environment just deployed above. See qa-automation/README.md for the full
+            // toolchain writeup (Playwright + REST-Assured + Karate + Pact + Detox).
+            when {
+                anyOf {
+                    branch 'main'
+                    expression { return (env.DEV_GATEWAY_URL ?: '').trim() }
+                }
+            }
+            environment {
+                // Same dev namespace the "Deploy to Dev" stage above just rolled out to.
+                // Override these per-environment (e.g. via Jenkins job/folder-level env vars)
+                // if the dev gateway/web app aren't reachable at these defaults from the agent.
+                GATEWAY_URL = "${env.DEV_GATEWAY_URL ?: 'http://api-gateway.dev.svc.cluster.local:8080'}"
+                WEB_BASE_URL = "${env.DEV_WEB_BASE_URL ?: 'http://web-app.dev.svc.cluster.local:3000'}"
+            }
             steps {
-                echo 'TODO: invoke Playwright (web/admin), RestAssured (API), Detox (RN) suites against the dev environment just deployed; publish an Allure report.'
+                script {
+                    parallel(
+                        'API (REST-Assured)': {
+                            dir('qa-automation/api') {
+                                sh 'mvn -B test'
+                            }
+                        },
+                        'API Contracts (Karate)': {
+                            dir('qa-automation/karate') {
+                                sh 'mvn -B test'
+                            }
+                        },
+                        'Consumer Contracts (Pact)': {
+                            dir('qa-automation/pact') {
+                                sh 'mvn -B test'
+                            }
+                        },
+                        'Web (Playwright)': {
+                            dir('qa-automation/web') {
+                                sh '''
+                                  if [ -f package-lock.json ]; then
+                                    npm ci
+                                  else
+                                    npm install
+                                  fi
+                                  npx playwright install --with-deps chromium firefox webkit
+                                  npm test
+                                '''
+                            }
+                        },
+                        'Mobile (Detox)': {
+                            // No React Native app exists in this repo yet -- see
+                            // qa-automation/mobile/README.md for activation steps. Left as an
+                            // explicit no-op (not a silently-skipped stage) so it's obvious in
+                            // the Blue Ocean UI that this leg is intentionally not wired up yet.
+                            echo 'SKIPPED: no React Native app in this repo yet -- see qa-automation/mobile/README.md.'
+                        }
+                    )
+                }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: 'qa-automation/**/target/surefire-reports/*.xml'
+                    sh '''
+                      npm install -g allure-commandline --silent || true
+                      allure generate qa-automation/api/target/allure-results qa-automation/web/allure-results \
+                        -o qa-automation/allure-report --clean || true
+                    '''
+                    archiveArtifacts artifacts: 'qa-automation/web/playwright-report/**, qa-automation/allure-report/**, qa-automation/pact/target/pacts/**', allowEmptyArchive: true
+                }
+            }
+        }
+
+        stage('DAST (ZAP Baseline)') {
+            when {
+                anyOf {
+                    allOf {
+                        branch 'main'
+                        expression { return (env.DEV_DAST_BASE_URL ?: env.DEV_GATEWAY_URL ?: '').trim() }
+                    }
+                    expression { return (env.DEV_DAST_BASE_URL ?: '').trim() }
+                }
+            }
+            environment {
+                DAST_BASE_URL = "${env.DEV_DAST_BASE_URL ?: env.DEV_GATEWAY_URL}"
+            }
+            steps {
+                sh '''
+                  mkdir -p qa-automation/zap
+                  docker run --rm --network host -v "$PWD/qa-automation/zap":/zap/wrk/:rw ghcr.io/zaproxy/zaproxy:stable \
+                    zap-baseline.py -t "$DAST_BASE_URL" -c /zap/wrk/rules.tsv \
+                    -J zap-report.json -r zap-report.html -w zap-report.md -m 5
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'qa-automation/zap/**', allowEmptyArchive: true
+                }
             }
         }
 

@@ -12,7 +12,8 @@ microservices, built once and deployable independently per operator (Doc 1 sec 5
 | `config-tenant-service` | **Complete** | Doc 1 sec 6: resolves operator identity, serves theme/layout/widget config from MongoDB, Redis-cached. |
 | `api-gateway` | **Complete** | Single entry point (Doc 1 sec 4); strangler-fig proxies anything not yet migrated to the legacy PHP app (Doc 1 sec 8). |
 | `loyalty-service` | **Complete reference implementation** | Full port of `scapp/StarPointsController.php` (Doc 1 sec 2.3 audit) -- real business logic, real MIFE adapter, real audit trail, real Kafka events, unit + Testcontainers integration tests. **Read this module first** -- every other service should follow its layering. |
-| `reports-service`, `notification-service`, `content-service` | **Starter modules** | Same layering/framework wiring as loyalty-service, but the actual per-controller business logic is a TODO -- see each module's `README-TODO.md` for the real, audited controller list to port, ranked by size. `notification-service` additionally has a **working Kafka consumer** wired to loyalty-service's events, so you can see the event-driven pattern end to end even before its own business logic is ported. |
+| `reports-service`, `content-service` | **Starter modules** | Same layering/framework wiring as loyalty-service, but the actual per-controller business logic is a TODO -- see each module's `README-TODO.md` for the real, audited controller list to port, ranked by size. |
+| `notification-service` | **Starter module with working delivery path** | Same layering/framework wiring as loyalty-service, plus a working Kafka consumer and a pluggable notification provider adapter. The default adapter logs and marks requests `SENT`, so the event-driven and direct-send paths are both executable end to end while tenant-specific SMS/push/email providers remain TODO. |
 
 This matches the scope chosen when this codebase was generated: one full reference service plus
 a reusable framework, rather than guessing the business logic for all 79 pilot-domain
@@ -84,6 +85,31 @@ mvn clean verify   # unit tests everywhere; loyalty-service also runs its Testco
                     # repository test, which needs a working Docker daemon
 ```
 
+End-to-end QA automation (Playwright, `qa/`) runs against a stack that's already up:
+```bash
+cd qa && npm install
+npx playwright test --project=api     # drives the platform through the gateway on :8080
+```
+The `api` project launches no browser -- it exercises gateway routing, the loyalty endpoints, the
+notifications endpoint, and the audit trail, asserting on contract shape rather than the WireMock
+stub's exact numbers, so the same specs run against a real dev environment via `API_BASE_URL`.
+The `web` project is browser based and skips itself until `WEB_BASE_URL` points at a selfcare
+frontend (which lives outside this repo). The pipeline's `QA Automation (Dev)` stage runs the
+`api` project after deploying.
+
+Additional QA and delivery assets:
+
+- `qa-automation/` contains REST-Assured, Karate, Pact, Playwright, and Detox suites aligned to the Jenkins pipeline.
+- `deploy/gitops/argocd/` contains the ArgoCD `AppProject` and `ApplicationSet` manifests for per-operator GitOps fan-out.
+- `deploy/helm/microservice-chart/templates/rollout.yaml` adds Argo Rollouts-compatible canary delivery when `rollout.enabled=true`.
+- `deploy/observability/` contains a starter Grafana dashboard, while the shared Helm chart now supports per-service `PrometheusRule` definitions.
+
+## MCP
+
+For editor-based OpenAI documentation lookup, this repo includes `.vscode/mcp.json` pointing at
+the official OpenAI Docs MCP server. If you're using a compatible MCP-capable editor workflow,
+enable the `openaiDeveloperDocs` server for the workspace.
+
 ## Adding a new microservice (the productization pattern, Doc 1 sec 3 principle 1)
 
 1. Copy `reports-service` (or `content-service` if Mongo fits better) as your starting layout:
@@ -126,9 +152,9 @@ whole point of the shared framework.
 - **Coverage gate**: the root `pom.xml`'s `jacoco-maven-plugin` fails the build below 60% line
   coverage bundle-wide -- adjust the threshold as your suite matures.
 - **CI pipeline**: see `Jenkinsfile` at the repo root and `ci/README.md` for what's wired vs.
-  what's a TODO (QA/E2E automation against a running dev deploy, and performance testing, are
-  both marked `TODO` there since they depend on suites that live in the frontend repos and on
-  your k6 setup, not on this backend monorepo).
+  what's a TODO. The pipeline now includes SonarQube, OWASP dependency-check, Gitleaks,
+  Checkov, Trivy, REST-Assured, Karate, Pact, Playwright, optional ZAP baseline DAST, and
+  Helm-based deployment. Performance testing remains a TODO pending the k6 workload definitions.
 
 ## Where this sits in the document package
 

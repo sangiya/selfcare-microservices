@@ -47,3 +47,29 @@ serviceMonitor:
 
 podAnnotations: {}
 labels: {}
+
+rollout:
+  enabled: false
+  revisionHistoryLimit: 2
+  canary:
+    maxSurge: 25%
+    maxUnavailable: 0
+    steps:
+      - setWeight: 20
+      - pause:
+          duration: 60s
+      - setWeight: 50
+      - pause:
+          duration: 120s
+
+prometheusRule:
+  enabled: false
+  rules:
+    - alert: SelfcareServiceDown
+      expr: up{app_kubernetes_io_name="{{ .Values.serviceName }}"} == 0
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "{{ .Values.serviceName }} is down"
+        description: "{{ .Values.serviceName }} has not been scraped successfully for at least 2 minutes."
