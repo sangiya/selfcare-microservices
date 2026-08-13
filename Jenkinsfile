@@ -146,7 +146,22 @@ pipeline {
                     steps {
                         sh '''
                           mkdir -p qa-automation/checkov
-                          docker run --rm --volumes-from "${JENKINS_CONTAINER_NAME:-microservices-jenkins}" -w "$PWD" bridgecrew/checkov:latest \
+                          jenkins_container="${JENKINS_CONTAINER_NAME:-}"
+                          if [ -n "$jenkins_container" ] && ! docker inspect "$jenkins_container" >/dev/null 2>&1; then
+                            jenkins_container=""
+                          fi
+                          if [ -z "$jenkins_container" ]; then
+                            jenkins_container="$(docker ps \
+                              --filter label=com.docker.compose.service=jenkins \
+                              --format '{{.Names}}' \
+                              | head -n 1)"
+                          fi
+                          if [ -z "$jenkins_container" ]; then
+                            echo "Unable to locate the running Jenkins container for Checkov volume mounting."
+                            docker ps --format 'table {{.Names}}\t{{.Status}}'
+                            exit 1
+                          fi
+                          docker run --rm --volumes-from "$jenkins_container" -w "$PWD" bridgecrew/checkov:latest \
                             --directory deploy \
                             --skip-check CKV_K8S_43 \
                             --output junitxml \
