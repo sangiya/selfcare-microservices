@@ -28,8 +28,15 @@ services:
       SCM_REPO_URL: "file:///workspace/microservices"
       SCM_BRANCH: "*/main"
       DEV_GATEWAY_URL: "http://host.docker.internal:8080"
+      DEV_CONFIG_TENANT_URL: "http://host.docker.internal:8081"
+      DEV_LOYALTY_URL: "http://host.docker.internal:8082"
+      DEV_REPORTS_URL: "http://host.docker.internal:8083"
+      DEV_NOTIFICATION_URL: "http://host.docker.internal:8084"
+      DEV_CONTENT_URL: "http://host.docker.internal:8085"
       DEV_DAST_BASE_URL: "http://host.docker.internal:8080"
       TESTCONTAINERS_HOST_OVERRIDE: "host.docker.internal"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - jenkins-home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock

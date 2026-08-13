@@ -1,0 +1,16 @@
+{
+  "name": "selfcare-qa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end QA automation for the selfcare platform (Doc 5 sec 6, items 2-4).",
+  "scripts": {
+    "test": "playwright test",
+    "test:api": "playwright test --project=api",
+    "test:web": "playwright test --project=web",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "allure-playwright": "^3.0.0"
+  }
+}
