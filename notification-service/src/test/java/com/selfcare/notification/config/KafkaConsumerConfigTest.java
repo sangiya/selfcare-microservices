@@ -19,9 +19,7 @@ class KafkaConsumerConfigTest {
         ConsumerFactory<String, Map<String, Object>> consumerFactory =
                 config.consumerFactory("kafka:9092", "notification-service");
 
-        assertThat(consumerFactory).isInstanceOf(DefaultKafkaConsumerFactory.class);
-        Map<String, Object> props = ((DefaultKafkaConsumerFactory<String, Map<String, Object>>) consumerFactory)
-                .getConfigurationProperties();
+        Map<String, Object> props = configurationPropertiesOf(consumerFactory);
         assertThat(props)
                 .containsEntry(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka:9092")
                 .containsEntry(ConsumerConfig.GROUP_ID_CONFIG, "notification-service")
@@ -39,5 +37,11 @@ class KafkaConsumerConfigTest {
 
         assertThat(factory.getConsumerFactory()).isSameAs(consumerFactory);
         assertThat(factory.getContainerProperties().getAckMode()).isEqualTo(ContainerProperties.AckMode.RECORD);
+    }
+
+    private static Map<String, Object> configurationPropertiesOf(
+            ConsumerFactory<String, Map<String, Object>> consumerFactory) {
+        assertThat(consumerFactory).isInstanceOf(DefaultKafkaConsumerFactory.class);
+        return ((DefaultKafkaConsumerFactory<?, ?>) consumerFactory).getConfigurationProperties();
     }
 }

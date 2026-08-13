@@ -3,6 +3,7 @@ package com.selfcare.loyalty.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -16,10 +17,12 @@ import com.selfcare.loyalty.event.LoyaltyEventPublisher;
 import com.selfcare.loyalty.event.PartnerRedemptionRequestedEvent;
 import com.selfcare.loyalty.event.PointsTransferEvent;
 import com.selfcare.loyalty.exception.CustomerValidationException;
+import com.selfcare.loyalty.exception.LoyaltyCoreIntegrationException;
 import com.selfcare.loyalty.exception.UnsupportedTransferChannelException;
 import com.selfcare.loyalty.repository.LoyaltyTransactionAuditRepository;
 import com.selfcare.loyalty.service.impl.LoyaltyServiceImpl;
 import com.selfcare.loyalty.web.dto.BalanceResponse;
+import com.selfcare.loyalty.web.dto.RegisterRequest;
 import com.selfcare.platform.common.adapter.ApiAdapterRegistry;
 import com.selfcare.platform.common.adapter.ApiAdapter;
 import com.selfcare.platform.common.featureflag.FeatureFlagClient;
@@ -138,8 +141,8 @@ class LoyaltyServiceImplTest {
                 .thenReturn(new LoyaltyCoreAdapter.RegistrationResult(
                         LoyaltyCoreAdapter.RegistrationStatus.PIN_SENT, "TX-99"));
 
-        var response = loyaltyService.register(new com.selfcare.loyalty.web.dto.RegisterRequest(
-                NIC, MSISDN, "NIC", NIC, "Test User", "Colombo", "test@example.com"));
+        var response = loyaltyService.register(
+                new RegisterRequest(NIC, MSISDN, "NIC", NIC, "Test User", "Colombo", "test@example.com"));
 
         assertThat(response.status()).isEqualTo("PIN_SENT");
         assertThat(response.pinTransactionRef()).isEqualTo("TX-99");
@@ -150,11 +153,11 @@ class LoyaltyServiceImplTest {
     void register_rethrowsAdapterFailureAndAuditsFailure() {
         when(customerValidationClient.isValidCustomer(NIC, MSISDN)).thenReturn(true);
         when(loyaltyCoreAdapter.register(any()))
-                .thenThrow(new com.selfcare.loyalty.exception.LoyaltyCoreIntegrationException("registration failed"));
+                .thenThrow(new LoyaltyCoreIntegrationException("registration failed"));
 
-        assertThatThrownBy(() -> loyaltyService.register(new com.selfcare.loyalty.web.dto.RegisterRequest(
-                        NIC, MSISDN, "NIC", NIC, "Test User", "Colombo", "test@example.com")))
-                .isInstanceOf(com.selfcare.loyalty.exception.LoyaltyCoreIntegrationException.class);
+        assertThatThrownBy(() -> loyaltyService.register(
+                        new RegisterRequest(NIC, MSISDN, "NIC", NIC, "Test User", "Colombo", "test@example.com")))
+                .isInstanceOf(LoyaltyCoreIntegrationException.class);
 
         verify(auditRepository).save(argThatAudit(LoyaltyActionType.REGISTER, AuditStatus.FAILURE));
     }
@@ -162,12 +165,11 @@ class LoyaltyServiceImplTest {
     @Test
     void transfer_mobileChannel_auditsFailureWhenAdapterThrows() {
         when(customerValidationClient.isValidCustomer(NIC, MSISDN)).thenReturn(true);
-        org.mockito.Mockito.doThrow(new com.selfcare.loyalty.exception.LoyaltyCoreIntegrationException("transfer failed"))
-                .when(loyaltyCoreAdapter).transferPoints(any());
+        doThrow(new LoyaltyCoreIntegrationException("transfer failed")).when(loyaltyCoreAdapter).transferPoints(any());
 
         assertThatThrownBy(() ->
                         loyaltyService.transfer(NIC, MSISDN, TransferChannel.MOBILE, "94779876543", new BigDecimal("50.00")))
-                .isInstanceOf(com.selfcare.loyalty.exception.LoyaltyCoreIntegrationException.class);
+                .isInstanceOf(LoyaltyCoreIntegrationException.class);
 
         verify(auditRepository).save(argThatAudit(LoyaltyActionType.TRANSFER, AuditStatus.FAILURE));
     }
@@ -186,11 +188,10 @@ class LoyaltyServiceImplTest {
     @Test
     void donate_rethrowsAdapterFailureAndAuditsFailure() {
         when(customerValidationClient.isValidCustomer(NIC, MSISDN)).thenReturn(true);
-        org.mockito.Mockito.doThrow(new com.selfcare.loyalty.exception.LoyaltyCoreIntegrationException("donation failed"))
-                .when(loyaltyCoreAdapter).donatePoints(any());
+        doThrow(new LoyaltyCoreIntegrationException("donation failed")).when(loyaltyCoreAdapter).donatePoints(any());
 
         assertThatThrownBy(() -> loyaltyService.donate(NIC, MSISDN, "charity", new BigDecimal("25.00")))
-                .isInstanceOf(com.selfcare.loyalty.exception.LoyaltyCoreIntegrationException.class);
+                .isInstanceOf(LoyaltyCoreIntegrationException.class);
 
         verify(auditRepository).save(argThatAudit(LoyaltyActionType.DONATE, AuditStatus.FAILURE));
     }
