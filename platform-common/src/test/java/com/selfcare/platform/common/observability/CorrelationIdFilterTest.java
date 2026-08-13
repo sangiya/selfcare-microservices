@@ -42,4 +42,16 @@ class CorrelationIdFilterTest {
         assertThat(response.getHeader(CorrelationIdFilter.HEADER_NAME)).isNotBlank();
         assertThat(response.getHeader(CorrelationIdFilter.HEADER_NAME)).hasSize(36);
     }
+
+    @Test
+    void generatesACorrelationIdWhenTheIncomingHeaderIsBlank() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(CorrelationIdFilter.HEADER_NAME, "   ");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, (req, res) -> { });
+
+        assertThat(response.getHeader(CorrelationIdFilter.HEADER_NAME)).isNotBlank();
+        assertThat(response.getHeader(CorrelationIdFilter.HEADER_NAME)).hasSize(36);
+    }
 }

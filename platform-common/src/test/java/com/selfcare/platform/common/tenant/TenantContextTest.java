@@ -28,6 +28,15 @@ class TenantContextTest {
     }
 
     @Test
+    void get_throwsWhenTenantIsBlank() {
+        TenantContext.set(" ");
+
+        assertThatThrownBy(TenantContext::get)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("No tenant resolved for this request");
+    }
+
+    @Test
     void getOrDefault_returnsFallbackWhenTenantIsMissingOrBlank() {
         assertThat(TenantContext.getOrDefault("fallback")).isEqualTo("fallback");
 

@@ -54,6 +54,28 @@ class TenantPropagationGlobalFilterTest {
     }
 
     @Test
+    void filter_replacesBlankHeadersWithFallbackValues() {
+        TenantPropagationGlobalFilter filter = new TenantPropagationGlobalFilter("default-tenant");
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/health")
+                        .header(TenantPropagationGlobalFilter.TENANT_HEADER, "   ")
+                        .header(TenantPropagationGlobalFilter.CORRELATION_HEADER, " ")
+                        .build());
+        AtomicReference<ServerHttpRequest> forwardedRequest = new AtomicReference<>();
+        GatewayFilterChain chain = ex -> {
+            forwardedRequest.set(ex.getRequest());
+            return Mono.empty();
+        };
+
+        filter.filter(exchange, chain).block();
+
+        assertThat(forwardedRequest.get().getHeaders().getFirst(TenantPropagationGlobalFilter.TENANT_HEADER))
+                .isEqualTo("default-tenant");
+        assertThat(forwardedRequest.get().getHeaders().getFirst(TenantPropagationGlobalFilter.CORRELATION_HEADER))
+                .hasSize(36);
+    }
+
+    @Test
     void order_runsAtHighestPrecedence() {
         TenantPropagationGlobalFilter filter = new TenantPropagationGlobalFilter("default-tenant");
 

@@ -54,4 +54,20 @@ class TenantResolverFilterTest {
 
         assertThat(tenantInsideChain.get()).isEqualTo("default-tenant");
     }
+
+    @Test
+    void fallsBackToConfiguredDefaultTenantWhenHeaderIsBlank() throws Exception {
+        TenantProperties properties = new TenantProperties();
+        properties.setDefaultTenantId("default-tenant");
+        TenantResolverFilter filter = new TenantResolverFilter(properties);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(properties.getHeaderName(), "   ");
+        AtomicReference<String> tenantInsideChain = new AtomicReference<>();
+
+        FilterChain chain = (req, res) -> tenantInsideChain.set(TenantContext.get());
+
+        filter.doFilter(request, new MockHttpServletResponse(), chain);
+
+        assertThat(tenantInsideChain.get()).isEqualTo("default-tenant");
+    }
 }

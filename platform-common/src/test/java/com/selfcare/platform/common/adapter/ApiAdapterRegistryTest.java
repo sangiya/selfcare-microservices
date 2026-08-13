@@ -49,6 +49,16 @@ class ApiAdapterRegistryTest {
     }
 
     @Test
+    void resolve_failsWhenCapabilityWasRegisteredWithAnEmptyAdapterList() {
+        registry.register(ProbeAdapter.class, List.of());
+        TenantContext.set("acme-telecom");
+
+        assertThatThrownBy(() -> registry.resolve(ProbeAdapter.class))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("No adapters registered for capability ProbeAdapter");
+    }
+
+    @Test
     void resolve_failsWhenTenantSpecificAdapterExistsWithoutDefaultFallback() {
         registry.register(ProbeAdapter.class, List.of(new TestAdapter("other-tenant", "other")));
         TenantContext.set("acme-telecom");

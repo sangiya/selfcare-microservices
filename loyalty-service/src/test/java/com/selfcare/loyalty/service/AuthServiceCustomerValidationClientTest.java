@@ -46,6 +46,15 @@ class AuthServiceCustomerValidationClientTest {
     }
 
     @Test
+    void returnsFalseWhenAuthServiceReturnsANullBody() throws Exception {
+        startServer(exchange -> writeResponse(exchange, 200, "null"));
+
+        AuthServiceCustomerValidationClient client = new AuthServiceCustomerValidationClient(baseUrl());
+
+        assertThat(client.isValidCustomer("912345678V", "94771234567")).isFalse();
+    }
+
+    @Test
     void returnsFalseWhenAuthServiceIsUnreachable() {
         AuthServiceCustomerValidationClient client = new AuthServiceCustomerValidationClient("http://127.0.0.1:1");
 
