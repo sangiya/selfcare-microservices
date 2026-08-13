@@ -23,11 +23,18 @@ pipeline {
         NVD_API_KEY = credentials('nvd-api-key')
         ODC_DATA_DIR = '/var/jenkins_home/dependency-check-data'
         SONAR_ANALYSIS_READY = 'false'
+        IMAGE_TAG = ''
     }
 
     stages {
         stage('Checkout') {
-            steps { checkout scm }
+            steps {
+                checkout scm
+                script {
+                    env.IMAGE_TAG = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+                    echo "Using image tag ${env.IMAGE_TAG}"
+                }
+            }
         }
 
         stage('Build & Unit Test') {
@@ -145,9 +152,18 @@ pipeline {
                 script {
                     params.SERVICES.split(',').each { svc ->
                         if (fileExists("${svc}/Dockerfile")) {
-                            sh "docker build -f ${svc}/Dockerfile -t ${REGISTRY}/${svc}:${env.GIT_COMMIT} ."
+                            withEnv([
+                                "SERVICE=${svc}",
+                                "DOCKER_BUILDKIT=1",
+                                "COMPOSE_DOCKER_CLI_BUILD=1"
+                            ]) {
+                                sh '''
+                                  set -eu
+                                  docker build -f "$SERVICE/Dockerfile" -t "$REGISTRY/$SERVICE:$IMAGE_TAG" .
+                                  trivy image --exit-code 1 --severity HIGH,CRITICAL "$REGISTRY/$SERVICE:$IMAGE_TAG"
+                                '''
+                            }
                             // Doc 5 sec 6, item 6 (continued): container image scanning.
-                            sh "trivy image --exit-code 1 --severity HIGH,CRITICAL ${REGISTRY}/${svc}:${env.GIT_COMMIT}"
                         }
                     }
                 }
@@ -160,7 +176,12 @@ pipeline {
                 script {
                     params.SERVICES.split(',').each { svc ->
                         if (fileExists("${svc}/Dockerfile")) {
-                            sh "docker push ${REGISTRY}/${svc}:${env.GIT_COMMIT}"
+                            withEnv(["SERVICE=${svc}"]) {
+                                sh '''
+                                  set -eu
+                                  docker push "$REGISTRY/$SERVICE:$IMAGE_TAG"
+                                '''
+                            }
                         }
                     }
                 }
@@ -176,12 +197,15 @@ pipeline {
                 script {
                     params.SERVICES.split(',').each { svc ->
                         if (fileExists("deploy/helm/values/${svc}-values.yaml")) {
-                            sh """
-                              helm upgrade --install ${svc} deploy/helm/microservice-chart \
-                                -f deploy/helm/values/${svc}-values.yaml \
-                                --set image.tag=${env.GIT_COMMIT} \
-                                --namespace dev --kube-context dev-cluster
-                            """
+                            withEnv(["SERVICE=${svc}"]) {
+                                sh '''
+                                  set -eu
+                                  helm upgrade --install "$SERVICE" deploy/helm/microservice-chart \
+                                    -f "deploy/helm/values/$SERVICE-values.yaml" \
+                                    --set "image.tag=$IMAGE_TAG" \
+                                    --namespace dev --kube-context dev-cluster
+                                '''
+                            }
                         }
                     }
                 }
