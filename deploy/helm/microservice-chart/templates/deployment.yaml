@@ -1,8 +1,10 @@
 {{- if not .Values.rollout.enabled }}
+#checkov:skip=CKV_K8S_43: This generic chart deploys immutable commit tags in CI; digest pinning happens in environment-specific promotion flows.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "microservice-chart.fullname" . }}
+  namespace: {{ include "microservice-chart.namespace" . }}
   labels:
     {{- include "microservice-chart.labels" . | nindent 4 }}
 spec:
@@ -17,10 +19,13 @@ spec:
       annotations:
         {{- toYaml .Values.podAnnotations | nindent 8 }}
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
         fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: {{ .Values.serviceName }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

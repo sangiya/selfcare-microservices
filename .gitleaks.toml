@@ -1,0 +1,11 @@
+title = "selfcare-microservices"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Local IDE metadata is developer-specific and not part of deployable artifacts"
+paths = [
+  '''^\.idea/''',
+  '''^\.vscode/'''
+]
