@@ -63,7 +63,17 @@ class PlatformAutoConfigurationTest {
     void unleashClient_buildsAConfiguredClient() throws Exception {
         startUnleashStub();
 
-        Unleash unleash = configuration.unleashClient(baseUrl() + "/api", "platform-common-test");
+        Unleash unleash = configuration.unleashClient(baseUrl() + "/api", "platform-common-test", "");
+
+        assertThat(unleash).isInstanceOf(DefaultUnleash.class);
+        ((DefaultUnleash) unleash).shutdown();
+    }
+
+    @Test
+    void unleashClient_appliesApiTokenWhenConfigured() throws Exception {
+        startUnleashStub();
+
+        Unleash unleash = configuration.unleashClient(baseUrl() + "/api", "platform-common-test", "local-dev-admin-token");
 
         assertThat(unleash).isInstanceOf(DefaultUnleash.class);
         ((DefaultUnleash) unleash).shutdown();

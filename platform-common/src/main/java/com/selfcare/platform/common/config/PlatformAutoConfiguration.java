@@ -16,6 +16,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.util.StringUtils;
 
 /**
  * Wires every cross-cutting concern (tenant resolution, correlation IDs, the API Adapter
@@ -56,12 +57,19 @@ public class PlatformAutoConfiguration {
     @ConditionalOnExpression("T(org.springframework.util.StringUtils).hasText('${platform.feature-flags.api-url:}')")
     public Unleash unleashClient(
             @Value("${platform.feature-flags.api-url}") String apiUrl,
-            @Value("${spring.application.name}") String appName) {
-        UnleashConfig config = UnleashConfig.builder()
+            @Value("${spring.application.name}") String appName,
+            @Value("${platform.feature-flags.api-token:}") String apiToken) {
+        UnleashConfig.Builder configBuilder = UnleashConfig.builder()
                 .appName(appName)
-                .unleashAPI(apiUrl)
-                .build();
-        return new DefaultUnleash(config);
+                .unleashAPI(apiUrl);
+        if (StringUtils.hasText(apiToken)) {
+            // Unleash's client API rejects unauthenticated polling with a 401 -- see the
+            // Authorization header requirement in Unleash's client SDK docs. Without this, every
+            // service pointed at a real Unleash instance backs off and falls through to the
+            // caller-supplied default on every flag check.
+            configBuilder.apiKey(apiToken);
+        }
+        return new DefaultUnleash(configBuilder.build());
     }
 
     @Bean
