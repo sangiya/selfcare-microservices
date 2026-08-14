@@ -23,7 +23,7 @@ class ReportsApiTest {
     void submitThenGetStatus_roundTrips() {
         String msisdn = "94779990001";
 
-        Integer id = given().baseUri(ApiTestConfig.GATEWAY_URL)
+        Integer id = given().baseUri(ApiTestConfig.REPORTS_URL)
                 .header(ApiTestConfig.TENANT_HEADER, ApiTestConfig.TEST_TENANT_ID)
                 .queryParam("subscriberMsisdn", msisdn)
                 .queryParam("reportType", "ACTIVITY_REPORT")
@@ -36,7 +36,7 @@ class ReportsApiTest {
                 .body("data.status", equalTo("PENDING"))
                 .extract().path("data.id");
 
-        given().baseUri(ApiTestConfig.GATEWAY_URL)
+        given().baseUri(ApiTestConfig.REPORTS_URL)
                 .header(ApiTestConfig.TENANT_HEADER, ApiTestConfig.TEST_TENANT_ID)
                 .when().get("/api/v1/reports/requests/{id}", id)
                 .then()
@@ -48,7 +48,7 @@ class ReportsApiTest {
     @Test
     @DisplayName("getStatus: unknown id returns NOT_FOUND envelope")
     void getStatus_unknownId_returnsNotFound() {
-        given().baseUri(ApiTestConfig.GATEWAY_URL)
+        given().baseUri(ApiTestConfig.REPORTS_URL)
                 .header(ApiTestConfig.TENANT_HEADER, ApiTestConfig.TEST_TENANT_ID)
                 .when().get("/api/v1/reports/requests/{id}", 999_999_999L)
                 .then()

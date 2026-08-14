@@ -1,7 +1,7 @@
-Feature: Loyalty API contracts through the gateway
+Feature: Loyalty service API contracts
 
   Scenario: Valid register request reaches the business flow
-    Given url gatewayUrl
+    Given url loyaltyUrl
     And path 'api', 'v1', 'loyalty', 'register'
     And header X-Tenant-Id = testTenantId
     And request
@@ -19,7 +19,7 @@ Feature: Loyalty API contracts through the gateway
     * match response.success == '#boolean'
 
   Scenario: Invalid register request returns a validation error envelope
-    Given url gatewayUrl
+    Given url loyaltyUrl
     And path 'api', 'v1', 'loyalty', 'register'
     And header X-Tenant-Id = testTenantId
     And request

@@ -16,7 +16,7 @@ class ContentApiTest {
     @Test
     @DisplayName("listByCategory: returns a well-formed envelope scoped to the tenant header")
     void listByCategory_returnsWellFormedEnvelope() {
-        given().baseUri(ApiTestConfig.GATEWAY_URL)
+        given().baseUri(ApiTestConfig.CONTENT_URL)
                 .header(ApiTestConfig.TENANT_HEADER, ApiTestConfig.TEST_TENANT_ID)
                 .queryParam("category", "billing")
                 .when().get("/api/v1/content/articles")
@@ -29,7 +29,7 @@ class ContentApiTest {
     @Test
     @DisplayName("listByCategory: missing required category param returns a client error, not a 500")
     void listByCategory_missingCategory_isRejected() {
-        given().baseUri(ApiTestConfig.GATEWAY_URL)
+        given().baseUri(ApiTestConfig.CONTENT_URL)
                 .header(ApiTestConfig.TENANT_HEADER, ApiTestConfig.TEST_TENANT_ID)
                 .when().get("/api/v1/content/articles")
                 .then()
@@ -39,7 +39,7 @@ class ContentApiTest {
     @Test
     @DisplayName("getById: unknown id returns NOT_FOUND envelope")
     void getById_unknownId_returnsNotFound() {
-        given().baseUri(ApiTestConfig.GATEWAY_URL)
+        given().baseUri(ApiTestConfig.CONTENT_URL)
                 .header(ApiTestConfig.TENANT_HEADER, ApiTestConfig.TEST_TENANT_ID)
                 .when().get("/api/v1/content/articles/{id}", "does-not-exist")
                 .then()

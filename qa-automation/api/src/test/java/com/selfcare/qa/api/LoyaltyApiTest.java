@@ -14,17 +14,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Exercises the loyalty domain THROUGH the gateway (not the service directly), so gateway
- * routing + tenant header propagation + the service's own security/validation chain are all
- * covered in one pass -- exactly the path a real client takes.
+ * Exercises the loyalty domain against the loyalty service itself, using the same tenant
+ * header and request shapes a real caller sends.
  *
  * Local dev has no real loyalty-core MIFE endpoint configured (see platform-common's
  * ResourceServerSecurityConfig dev fallback and the service's adapter config), so a register
  * call is expected to reach the business layer and fail there with LOYALTY_CORE_UNAVAILABLE
- * (502) -- that failure IS the pass condition here: it proves gateway routing, tenant
- * propagation, request validation, and the adapter's own error handling all worked correctly.
- * Point GATEWAY_URL at an environment with a real core adapter wired up to instead assert a
- * 200 with a populated RegisterResponse.
+ * (502) -- that failure IS the pass condition here: it proves tenant propagation, request
+ * validation, and the adapter's own error handling all worked correctly. Point LOYALTY_URL at
+ * an environment with a real core adapter wired up to instead assert a 200 with a populated
+ * RegisterResponse.
  */
 @Epic("QA Automation")
 @Feature("Loyalty & Rewards")
@@ -41,7 +40,7 @@ class LoyaltyApiTest {
                 "idNumber", "199012345678",
                 "email", "qa-automation@example.com");
 
-        given().baseUri(ApiTestConfig.GATEWAY_URL)
+        given().baseUri(ApiTestConfig.LOYALTY_URL)
                 .header(ApiTestConfig.TENANT_HEADER, ApiTestConfig.TEST_TENANT_ID)
                 .contentType(ContentType.JSON)
                 .body(body)
@@ -58,7 +57,7 @@ class LoyaltyApiTest {
     void register_missingRequiredField_returnsValidationError() {
         Map<String, String> body = Map.of("msisdn", "94771234567"); // nationalId/idType/idNumber missing
 
-        given().baseUri(ApiTestConfig.GATEWAY_URL)
+        given().baseUri(ApiTestConfig.LOYALTY_URL)
                 .header(ApiTestConfig.TENANT_HEADER, ApiTestConfig.TEST_TENANT_ID)
                 .contentType(ContentType.JSON)
                 .body(body)
@@ -79,7 +78,7 @@ class LoyaltyApiTest {
             + "logs which one happened -- worth a follow-up fix in platform-common regardless "
             + "of what this run reports.")
     void balance_missingParams_returnsStructuredError() {
-        given().baseUri(ApiTestConfig.GATEWAY_URL)
+        given().baseUri(ApiTestConfig.LOYALTY_URL)
                 .header(ApiTestConfig.TENANT_HEADER, ApiTestConfig.TEST_TENANT_ID)
                 .when().get("/api/v1/loyalty/balance")
                 .then()
