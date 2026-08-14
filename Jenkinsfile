@@ -146,7 +146,22 @@ pipeline {
                     steps {
                         sh '''
                           mkdir -p qa-automation/checkov
-                          docker run --rm --volumes-from "${JENKINS_CONTAINER_NAME:-microservices-jenkins}" -w "$PWD" bridgecrew/checkov:latest \
+                          jenkins_container="${JENKINS_CONTAINER_NAME:-}"
+                          if [ -n "$jenkins_container" ] && ! docker inspect "$jenkins_container" >/dev/null 2>&1; then
+                            jenkins_container=""
+                          fi
+                          if [ -z "$jenkins_container" ]; then
+                            jenkins_container="$(docker ps \
+                              --filter label=com.docker.compose.service=jenkins \
+                              --format '{{.Names}}' \
+                              | head -n 1)"
+                          fi
+                          if [ -z "$jenkins_container" ]; then
+                            echo "Unable to locate the running Jenkins container for Checkov volume mounting."
+                            docker ps --format 'table {{.Names}}\t{{.Status}}'
+                            exit 1
+                          fi
+                          docker run --rm --volumes-from "$jenkins_container" -w "$PWD" bridgecrew/checkov:latest \
                             --directory deploy \
                             --skip-check CKV_K8S_43 \
                             --output junitxml \
@@ -274,6 +289,62 @@ pipeline {
             }
             steps {
                 script {
+                    def useLocalComposeQaStack =
+                        (env.QA_BOOTSTRAP_LOCAL_STACK ?: '').trim().toBoolean() ||
+                        (env.DEV_GATEWAY_URL ?: '').contains('host.docker.internal')
+
+                    if (useLocalComposeQaStack) {
+                        sh '''
+                          set -eu
+                          mkdir -p qa-automation/local-stack-logs
+                          docker compose -p microservices --profile app up -d --build
+
+                          wait_for_http() {
+                            expected="$1"
+                            name="$2"
+                            url="$3"
+                            shift 3
+                            output_file="qa-automation/local-stack-logs/${name}.out"
+                            attempt=1
+                            max_attempts=24
+
+                            while [ "$attempt" -le "$max_attempts" ]; do
+                              code="$(curl -ksS -o "$output_file" -w '%{http_code}' "$@" "$url" || true)"
+                              if [ "$code" = "$expected" ]; then
+                                echo "[qa-ready] ${name} is ready at ${url} (HTTP ${code})"
+                                return 0
+                              fi
+
+                              echo "[qa-ready] waiting for ${name} at ${url}: got HTTP ${code} (attempt ${attempt}/${max_attempts})"
+                              sleep 5
+                              attempt=$((attempt + 1))
+                            done
+
+                            echo "[qa-ready] timed out waiting for ${name} at ${url}; last response:"
+                            cat "$output_file" || true
+                            docker compose -p microservices ps || true
+                            return 1
+                          }
+
+                          wait_for_http 200 gateway-liveness "$GATEWAY_URL/actuator/health/liveness"
+                          wait_for_http 200 content-health "$CONTENT_URL/actuator/health"
+                          wait_for_http 200 config-health "$CONFIG_TENANT_URL/actuator/health"
+                          wait_for_http 200 loyalty-liveness "$LOYALTY_URL/actuator/health/liveness"
+                          wait_for_http 200 reports-liveness "$REPORTS_URL/actuator/health/liveness"
+                          wait_for_http 200 notification-liveness "$NOTIFICATION_URL/actuator/health/liveness"
+
+                          wait_for_http 200 gateway-content "$GATEWAY_URL/api/v1/content/articles?category=billing" \
+                            -H "X-Tenant-Id: ${TEST_TENANT_ID}"
+                          wait_for_http 400 gateway-loyalty-validation "$GATEWAY_URL/api/v1/loyalty/register" \
+                            -X POST \
+                            -H "Content-Type: application/json" \
+                            -H "X-Tenant-Id: ${TEST_TENANT_ID}" \
+                            --data '{"msisdn":"94771234567"}'
+                          wait_for_http 404 gateway-reports-not-found "$GATEWAY_URL/api/v1/reports/requests/999999999" \
+                            -H "X-Tenant-Id: ${TEST_TENANT_ID}"
+                        '''
+                    }
+
                     parallel(
                         'API (REST-Assured)': {
                             dir('qa-automation/api') {
@@ -316,6 +387,23 @@ pipeline {
                 }
             }
             post {
+                failure {
+                    script {
+                        def useLocalComposeQaStack =
+                            (env.QA_BOOTSTRAP_LOCAL_STACK ?: '').trim().toBoolean() ||
+                            (env.DEV_GATEWAY_URL ?: '').contains('host.docker.internal')
+
+                        if (useLocalComposeQaStack) {
+                            sh '''
+                              mkdir -p qa-automation/local-stack-logs
+                              docker compose -p microservices ps > qa-automation/local-stack-logs/compose-ps.txt || true
+                              for svc in api-gateway loyalty-service reports-service notification-service content-service config-tenant-service; do
+                                docker compose -p microservices logs --tail=200 "$svc" > "qa-automation/local-stack-logs/${svc}.log" || true
+                              done
+                            '''
+                        }
+                    }
+                }
                 always {
                     junit allowEmptyResults: true, skipPublishingChecks: true, testResults: 'qa-automation/**/target/surefire-reports/*.xml'
                     sh '''
@@ -323,7 +411,7 @@ pipeline {
                       allure generate qa-automation/api/target/allure-results qa-automation/web/allure-results \
                         -o qa-automation/allure-report --clean || true
                     '''
-                    archiveArtifacts artifacts: 'qa-automation/web/playwright-report/**, qa-automation/allure-report/**, qa-automation/pact/target/pacts/**', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'qa-automation/web/playwright-report/**, qa-automation/allure-report/**, qa-automation/pact/target/pacts/**, qa-automation/local-stack-logs/**', allowEmptyArchive: true
                 }
             }
         }
@@ -342,12 +430,52 @@ pipeline {
                 DAST_BASE_URL = "${env.DEV_DAST_BASE_URL ?: env.DEV_GATEWAY_URL}"
             }
             steps {
-                sh '''
-                  mkdir -p qa-automation/zap
-                  docker run --rm --network host -v "$PWD/qa-automation/zap":/zap/wrk/:rw ghcr.io/zaproxy/zaproxy:stable \
-                    zap-baseline.py -t "$DAST_BASE_URL" -c /zap/wrk/rules.tsv \
-                    -J zap-report.json -r zap-report.html -w zap-report.md -m 5
-                '''
+                script {
+                    def exitCode = sh(returnStatus: true, script: '''
+                      set -eu
+                      mkdir -p qa-automation/zap
+                      # This Jenkins agent is itself a container sharing the host's docker.sock,
+                      # so a bind mount like "-v $PWD:/zap/wrk" is resolved by the DAEMON against
+                      # ITS OWN filesystem, not this container's -- $PWD only exists inside the
+                      # jenkins-home named volume, so the daemon silently mounts an empty
+                      # directory and zap-baseline.py fails with "No such file or directory:
+                      # /zap/wrk/rules.tsv". docker cp sidesteps this entirely: it streams file
+                      # content through the Docker API rather than resolving a host path, so it
+                      # works the same regardless of where the CLI process runs. -v /zap/wrk
+                      # (no host source) gives the container a real anonymous-volume mountpoint
+                      # there, which zap-baseline.py requires before it'll write any file-based
+                      # options; --user root avoids a permission error writing the report once
+                      # docker cp (running as root) has touched that volume.
+                      docker rm -f zap-baseline-scan >/dev/null 2>&1 || true
+                      docker create --name zap-baseline-scan --network host --user root -v /zap/wrk \
+                        ghcr.io/zaproxy/zaproxy:stable \
+                        zap-baseline.py -t "$DAST_BASE_URL" -c rules.tsv \
+                        -J zap-report.json -r zap-report.html -w zap-report.md -m 5
+                      docker cp qa-automation/zap/rules.tsv zap-baseline-scan:/zap/wrk/rules.tsv
+
+                      set +e
+                      docker start -a zap-baseline-scan
+                      scan_exit=$?
+                      set -e
+
+                      docker cp zap-baseline-scan:/zap/wrk/zap-report.json qa-automation/zap/zap-report.json || true
+                      docker cp zap-baseline-scan:/zap/wrk/zap-report.html qa-automation/zap/zap-report.html || true
+                      docker cp zap-baseline-scan:/zap/wrk/zap-report.md qa-automation/zap/zap-report.md || true
+                      docker rm -f zap-baseline-scan >/dev/null 2>&1 || true
+                      exit $scan_exit
+                    ''')
+
+                    // zap-baseline.py: 0 = clean, 1 = at least one FAIL, 2 = WARN(s) only, no
+                    // FAIL. Only block the pipeline on real FAILs -- WARN-level findings are
+                    // meant to be visible in the archived report for triage, not build-breaking.
+                    if (exitCode == 1) {
+                        error("ZAP baseline scan found FAIL-level issues -- see the archived qa-automation/zap report.")
+                    } else if (exitCode != 0 && exitCode != 2) {
+                        error("ZAP baseline scan failed unexpectedly (exit code ${exitCode}) -- see the archived qa-automation/zap report.")
+                    } else if (exitCode == 2) {
+                        echo "ZAP baseline scan found WARN-level issues only (exit code 2) -- not failing the build, see the archived qa-automation/zap report."
+                    }
+                }
             }
             post {
                 always {

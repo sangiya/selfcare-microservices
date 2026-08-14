@@ -3,45 +3,47 @@ spring:
     name: api-gateway
   cloud:
     gateway:
-      httpclient:
-        connect-timeout: 3000
-        response-timeout: 15s
-      routes:
-        # --- Migrated Java microservices (Doc 5 90-day pilot) ---
-        - id: config-tenant-service
-          uri: ${CONFIG_SERVICE_URI:http://config-tenant-service:8081}
-          predicates:
-            - Path=/api/v1/tenants/**
+      server:
+        webflux:
+          httpclient:
+            connect-timeout: 3000
+            response-timeout: 15s
+          routes:
+            # --- Migrated Java microservices (Doc 5 90-day pilot) ---
+            - id: config-tenant-service
+              uri: ${CONFIG_SERVICE_URI:http://config-tenant-service:8081}
+              predicates:
+                - Path=/api/v1/tenants/**
 
-        - id: loyalty-service
-          uri: ${LOYALTY_SERVICE_URI:http://loyalty-service:8082}
-          predicates:
-            - Path=/api/v1/loyalty/**
+            - id: loyalty-service
+              uri: ${LOYALTY_SERVICE_URI:http://loyalty-service:8082}
+              predicates:
+                - Path=/api/v1/loyalty/**
 
-        - id: reports-service
-          uri: ${REPORTS_SERVICE_URI:http://reports-service:8083}
-          predicates:
-            - Path=/api/v1/reports/**
+            - id: reports-service
+              uri: ${REPORTS_SERVICE_URI:http://reports-service:8083}
+              predicates:
+                - Path=/api/v1/reports/**
 
-        - id: notification-service
-          uri: ${NOTIFICATION_SERVICE_URI:http://notification-service:8084}
-          predicates:
-            - Path=/api/v1/notifications/**
+            - id: notification-service
+              uri: ${NOTIFICATION_SERVICE_URI:http://notification-service:8084}
+              predicates:
+                - Path=/api/v1/notifications/**
 
-        - id: content-service
-          uri: ${CONTENT_SERVICE_URI:http://content-service:8085}
-          predicates:
-            - Path=/api/v1/content/**
+            - id: content-service
+              uri: ${CONTENT_SERVICE_URI:http://content-service:8085}
+              predicates:
+                - Path=/api/v1/content/**
 
-        # --- Strangler-fig fallback: everything not yet migrated still goes to legacy PHP
-        # (Doc 1 sec 3 principle 2 / Doc 4 sec 3.1). Keep this LAST so specific routes above
-        # always win; when a new domain migrates, add its route above this one and nothing
-        # else in the gateway config changes. ---
-        - id: legacy-php-fallback
-          uri: ${LEGACY_PHP_BASE_URL:http://legacy-php.internal}
-          predicates:
-            - Path=/**
-          order: 100
+            # --- Strangler-fig fallback: everything not yet migrated still goes to legacy PHP
+            # (Doc 1 sec 3 principle 2 / Doc 4 sec 3.1). Keep this LAST so specific routes above
+            # always win; when a new domain migrates, add its route above this one and nothing
+            # else in the gateway config changes. ---
+            - id: legacy-php-fallback
+              uri: ${LEGACY_PHP_BASE_URL:http://legacy-php.internal}
+              predicates:
+                - Path=/**
+              order: 100
 
 platform:
   tenant:
