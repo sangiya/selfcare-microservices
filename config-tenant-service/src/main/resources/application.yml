@@ -22,6 +22,7 @@ platform:
     jwk-set-uri: ${AUTH_SERVICE_JWK_URI:} # unset -> permit-all (dev only, logs a warning) -- see ResourceServerSecurityConfig
   feature-flags:
     api-url: ${UNLEASH_API_URL:}
+    api-token: ${UNLEASH_API_TOKEN:}
 
 management:
   endpoints:
