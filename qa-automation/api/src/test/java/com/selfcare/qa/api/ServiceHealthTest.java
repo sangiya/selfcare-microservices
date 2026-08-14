@@ -18,12 +18,14 @@ import org.junit.jupiter.api.Test;
 @Feature("Service health")
 class ServiceHealthTest {
 
+    private static final String LIVENESS_PATH = "/actuator/health/liveness";
+
     @Test
     @DisplayName("API Gateway actuator health is UP")
-    @Description("Gateway's own health, independent of any downstream service.")
+    @Description("Gateway process liveness, independent of downstream dependency readiness.")
     void gatewayHealthIsUp() {
         given().baseUri(ApiTestConfig.GATEWAY_URL)
-                .when().get("/actuator/health")
+                .when().get(LIVENESS_PATH)
                 .then().statusCode(200)
                 .body("status", equalTo("UP"));
     }
@@ -32,7 +34,7 @@ class ServiceHealthTest {
     @DisplayName("Loyalty service actuator health is UP")
     void loyaltyHealthIsUp() {
         given().baseUri(ApiTestConfig.LOYALTY_URL)
-                .when().get("/actuator/health")
+                .when().get(LIVENESS_PATH)
                 .then().statusCode(200)
                 .body("status", equalTo("UP"));
     }
@@ -41,7 +43,7 @@ class ServiceHealthTest {
     @DisplayName("Reports service actuator health is UP")
     void reportsHealthIsUp() {
         given().baseUri(ApiTestConfig.REPORTS_URL)
-                .when().get("/actuator/health")
+                .when().get(LIVENESS_PATH)
                 .then().statusCode(200)
                 .body("status", equalTo("UP"));
     }
@@ -50,7 +52,7 @@ class ServiceHealthTest {
     @DisplayName("Notification service actuator health is UP")
     void notificationHealthIsUp() {
         given().baseUri(ApiTestConfig.NOTIFICATION_URL)
-                .when().get("/actuator/health")
+                .when().get(LIVENESS_PATH)
                 .then().statusCode(200)
                 .body("status", equalTo("UP"));
     }
@@ -59,7 +61,7 @@ class ServiceHealthTest {
     @DisplayName("Content service actuator health is UP")
     void contentHealthIsUp() {
         given().baseUri(ApiTestConfig.CONTENT_URL)
-                .when().get("/actuator/health")
+                .when().get(LIVENESS_PATH)
                 .then().statusCode(200)
                 .body("status", equalTo("UP"));
     }
@@ -68,7 +70,7 @@ class ServiceHealthTest {
     @DisplayName("Config/tenant service actuator health is UP")
     void configTenantHealthIsUp() {
         given().baseUri(ApiTestConfig.CONFIG_TENANT_URL)
-                .when().get("/actuator/health")
+                .when().get(LIVENESS_PATH)
                 .then().statusCode(200)
                 .body("status", equalTo("UP"));
     }

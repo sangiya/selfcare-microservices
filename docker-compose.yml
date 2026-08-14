@@ -64,6 +64,11 @@ services:
       DATABASE_URL: "postgres://unleash:localdev@unleash-db:5432/unleash"
       DATABASE_SSL: "false"
       INIT_ADMIN_API_TOKENS: "*:*.local-dev-admin-token"
+      # Separate CLIENT-scoped token for the SDKs polling /api/client/features -- the admin
+      # token above is for the Unleash UI/API, not for services, and Unleash rejects an admin
+      # token there. Client tokens can't use "*" for environment (Unleash rejects
+      # "scoped to all environments"), so pin it to the default "development" environment.
+      INIT_CLIENT_API_TOKENS: "*:development.local-dev-client-token"
 
   # Stands in for the MIFE Star Points core, which has no non-production instance reachable
   # from a dev machine. Stubs live in deploy/local/wiremock/mappings and cover every endpoint
@@ -90,9 +95,11 @@ services:
       MONGODB_URI: "mongodb://mongo:27017/selfcare_config"
       REDIS_HOST: redis
       UNLEASH_API_URL: "http://unleash:4242/api"
+      UNLEASH_API_TOKEN: "*:development.local-dev-client-token"
     depends_on:
       - mongo
       - redis
+      - unleash
 
   loyalty-service:
     profiles: ["app"]
@@ -107,6 +114,7 @@ services:
       DB_PASSWORD: localdev
       KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
       UNLEASH_API_URL: "http://unleash:4242/api"
+      UNLEASH_API_TOKEN: "*:development.local-dev-client-token"
       MIFE_BASE_URL: "http://wiremock-mife:8080"
       # The adapter builds its request maps with Map.of, which rejects nulls -- these must be
       # non-empty even against the stub. Fake credentials; the stubs don't check them.
@@ -122,6 +130,8 @@ services:
       kafka:
         condition: service_started
       wiremock-mife:
+        condition: service_started
+      unleash:
         condition: service_started
 
   reports-service:
