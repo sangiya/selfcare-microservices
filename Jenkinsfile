@@ -289,6 +289,62 @@ pipeline {
             }
             steps {
                 script {
+                    def useLocalComposeQaStack =
+                        (env.QA_BOOTSTRAP_LOCAL_STACK ?: '').trim().toBoolean() ||
+                        (env.DEV_GATEWAY_URL ?: '').contains('host.docker.internal')
+
+                    if (useLocalComposeQaStack) {
+                        sh '''
+                          set -eu
+                          mkdir -p qa-automation/local-stack-logs
+                          docker compose -p microservices --profile app up -d --build
+
+                          wait_for_http() {
+                            expected="$1"
+                            name="$2"
+                            url="$3"
+                            shift 3
+                            output_file="qa-automation/local-stack-logs/${name}.out"
+                            attempt=1
+                            max_attempts=24
+
+                            while [ "$attempt" -le "$max_attempts" ]; do
+                              code="$(curl -ksS -o "$output_file" -w '%{http_code}' "$@" "$url" || true)"
+                              if [ "$code" = "$expected" ]; then
+                                echo "[qa-ready] ${name} is ready at ${url} (HTTP ${code})"
+                                return 0
+                              fi
+
+                              echo "[qa-ready] waiting for ${name} at ${url}: got HTTP ${code} (attempt ${attempt}/${max_attempts})"
+                              sleep 5
+                              attempt=$((attempt + 1))
+                            done
+
+                            echo "[qa-ready] timed out waiting for ${name} at ${url}; last response:"
+                            cat "$output_file" || true
+                            docker compose -p microservices ps || true
+                            return 1
+                          }
+
+                          wait_for_http 200 gateway-liveness "$GATEWAY_URL/actuator/health/liveness"
+                          wait_for_http 200 content-health "$CONTENT_URL/actuator/health"
+                          wait_for_http 200 config-health "$CONFIG_TENANT_URL/actuator/health"
+                          wait_for_http 200 loyalty-liveness "$LOYALTY_URL/actuator/health/liveness"
+                          wait_for_http 200 reports-liveness "$REPORTS_URL/actuator/health/liveness"
+                          wait_for_http 200 notification-liveness "$NOTIFICATION_URL/actuator/health/liveness"
+
+                          wait_for_http 200 gateway-content "$GATEWAY_URL/api/v1/content/articles?category=billing" \
+                            -H "X-Tenant-Id: ${TEST_TENANT_ID}"
+                          wait_for_http 400 gateway-loyalty-validation "$GATEWAY_URL/api/v1/loyalty/register" \
+                            -X POST \
+                            -H "Content-Type: application/json" \
+                            -H "X-Tenant-Id: ${TEST_TENANT_ID}" \
+                            --data '{"msisdn":"94771234567"}'
+                          wait_for_http 404 gateway-reports-not-found "$GATEWAY_URL/api/v1/reports/requests/999999999" \
+                            -H "X-Tenant-Id: ${TEST_TENANT_ID}"
+                        '''
+                    }
+
                     parallel(
                         'API (REST-Assured)': {
                             dir('qa-automation/api') {
@@ -331,6 +387,23 @@ pipeline {
                 }
             }
             post {
+                failure {
+                    script {
+                        def useLocalComposeQaStack =
+                            (env.QA_BOOTSTRAP_LOCAL_STACK ?: '').trim().toBoolean() ||
+                            (env.DEV_GATEWAY_URL ?: '').contains('host.docker.internal')
+
+                        if (useLocalComposeQaStack) {
+                            sh '''
+                              mkdir -p qa-automation/local-stack-logs
+                              docker compose -p microservices ps > qa-automation/local-stack-logs/compose-ps.txt || true
+                              for svc in api-gateway loyalty-service reports-service notification-service content-service config-tenant-service; do
+                                docker compose -p microservices logs --tail=200 "$svc" > "qa-automation/local-stack-logs/${svc}.log" || true
+                              done
+                            '''
+                        }
+                    }
+                }
                 always {
                     junit allowEmptyResults: true, skipPublishingChecks: true, testResults: 'qa-automation/**/target/surefire-reports/*.xml'
                     sh '''
@@ -338,7 +411,7 @@ pipeline {
                       allure generate qa-automation/api/target/allure-results qa-automation/web/allure-results \
                         -o qa-automation/allure-report --clean || true
                     '''
-                    archiveArtifacts artifacts: 'qa-automation/web/playwright-report/**, qa-automation/allure-report/**, qa-automation/pact/target/pacts/**', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'qa-automation/web/playwright-report/**, qa-automation/allure-report/**, qa-automation/pact/target/pacts/**, qa-automation/local-stack-logs/**', allowEmptyArchive: true
                 }
             }
         }

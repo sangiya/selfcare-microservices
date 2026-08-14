@@ -35,6 +35,7 @@ services:
       DEV_NOTIFICATION_URL: "http://host.docker.internal:8084"
       DEV_CONTENT_URL: "http://host.docker.internal:8085"
       DEV_DAST_BASE_URL: "http://host.docker.internal:8080"
+      QA_BOOTSTRAP_LOCAL_STACK: "true"
       TESTCONTAINERS_HOST_OVERRIDE: "host.docker.internal"
       JENKINS_CONTAINER_NAME: "microservices-jenkins"
     extra_hosts:
