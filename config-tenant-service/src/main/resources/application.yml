@@ -1,9 +1,9 @@
 spring:
   application:
     name: config-tenant-service
+  mongodb:
+    uri: ${MONGODB_URI:mongodb://localhost:27017/selfcare_config}
   data:
-    mongodb:
-      uri: ${MONGODB_URI:mongodb://localhost:27017/selfcare_config}
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
