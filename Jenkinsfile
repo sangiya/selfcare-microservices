@@ -138,6 +138,20 @@ pipeline {
                             """
                         }
                     }
+                    post {
+                        always {
+                            // aggregate writes to the reactor root's target/, not a per-module one.
+                            archiveArtifacts artifacts: 'target/dependency-check-report.html, target/dependency-check-report.xml', allowEmptyArchive: true
+                            publishHTML(target: [
+                                allowMissing: true,
+                                alwaysLinkToLastBuild: true,
+                                keepAll: true,
+                                reportDir: 'target',
+                                reportFiles: 'dependency-check-report.html',
+                                reportName: 'Dependency-Check Report'
+                            ])
+                        }
+                    }
                 }
                 stage('Secrets scan (Gitleaks)') {
                     steps { sh 'gitleaks detect --source . --no-git -v --redact=100 --exit-code 1' }
@@ -416,6 +430,27 @@ pipeline {
                         -o qa-automation/allure-report --clean || true
                     '''
                     archiveArtifacts artifacts: 'qa-automation/web/playwright-report/**, qa-automation/allure-report/**, qa-automation/pact/target/pacts/**, qa-automation/local-stack-logs/**', allowEmptyArchive: true
+                    // archiveArtifacts alone only makes these downloadable -- Jenkins serves raw
+                    // archived files under a locked-down CSP (script-src blocked entirely), so
+                    // Playwright's and Allure's JS-rendered single-page reports open blank.
+                    // publishHTML serves its target directory without that restriction and adds
+                    // the sidebar link.
+                    publishHTML(target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'qa-automation/web/playwright-report',
+                        reportFiles: 'index.html',
+                        reportName: 'Playwright Report'
+                    ])
+                    publishHTML(target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'qa-automation/allure-report',
+                        reportFiles: 'index.html',
+                        reportName: 'Allure Report'
+                    ])
                 }
             }
         }
@@ -484,6 +519,14 @@ pipeline {
             post {
                 always {
                     archiveArtifacts artifacts: 'qa-automation/zap/**', allowEmptyArchive: true
+                    publishHTML(target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'qa-automation/zap',
+                        reportFiles: 'zap-report.html',
+                        reportName: 'ZAP DAST Report'
+                    ])
                 }
             }
         }
