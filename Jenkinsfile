@@ -286,6 +286,10 @@ pipeline {
                 CONTENT_URL = "${env.DEV_CONTENT_URL ?: 'http://content-service.dev.svc.cluster.local:8085'}"
                 CONFIG_TENANT_URL = "${env.DEV_CONFIG_TENANT_URL ?: 'http://config-tenant-service.dev.svc.cluster.local:8081'}"
                 WEB_BASE_URL = "${env.DEV_WEB_BASE_URL ?: 'http://web-app.dev.svc.cluster.local:3000'}"
+                // Same default qa-automation/api/.../ApiTestConfig.java and the web suite's
+                // qa.env.js fall back to when unset -- the bootstrap script below and the test
+                // suites need to agree on one tenant id.
+                TEST_TENANT_ID = "${env.TEST_TENANT_ID ?: 'acme-telecom'}"
             }
             steps {
                 script {
