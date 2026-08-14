@@ -430,12 +430,52 @@ pipeline {
                 DAST_BASE_URL = "${env.DEV_DAST_BASE_URL ?: env.DEV_GATEWAY_URL}"
             }
             steps {
-                sh '''
-                  mkdir -p qa-automation/zap
-                  docker run --rm --network host -v "$PWD/qa-automation/zap":/zap/wrk/:rw ghcr.io/zaproxy/zaproxy:stable \
-                    zap-baseline.py -t "$DAST_BASE_URL" -c /zap/wrk/rules.tsv \
-                    -J zap-report.json -r zap-report.html -w zap-report.md -m 5
-                '''
+                script {
+                    def exitCode = sh(returnStatus: true, script: '''
+                      set -eu
+                      mkdir -p qa-automation/zap
+                      # This Jenkins agent is itself a container sharing the host's docker.sock,
+                      # so a bind mount like "-v $PWD:/zap/wrk" is resolved by the DAEMON against
+                      # ITS OWN filesystem, not this container's -- $PWD only exists inside the
+                      # jenkins-home named volume, so the daemon silently mounts an empty
+                      # directory and zap-baseline.py fails with "No such file or directory:
+                      # /zap/wrk/rules.tsv". docker cp sidesteps this entirely: it streams file
+                      # content through the Docker API rather than resolving a host path, so it
+                      # works the same regardless of where the CLI process runs. -v /zap/wrk
+                      # (no host source) gives the container a real anonymous-volume mountpoint
+                      # there, which zap-baseline.py requires before it'll write any file-based
+                      # options; --user root avoids a permission error writing the report once
+                      # docker cp (running as root) has touched that volume.
+                      docker rm -f zap-baseline-scan >/dev/null 2>&1 || true
+                      docker create --name zap-baseline-scan --network host --user root -v /zap/wrk \
+                        ghcr.io/zaproxy/zaproxy:stable \
+                        zap-baseline.py -t "$DAST_BASE_URL" -c rules.tsv \
+                        -J zap-report.json -r zap-report.html -w zap-report.md -m 5
+                      docker cp qa-automation/zap/rules.tsv zap-baseline-scan:/zap/wrk/rules.tsv
+
+                      set +e
+                      docker start -a zap-baseline-scan
+                      scan_exit=$?
+                      set -e
+
+                      docker cp zap-baseline-scan:/zap/wrk/zap-report.json qa-automation/zap/zap-report.json || true
+                      docker cp zap-baseline-scan:/zap/wrk/zap-report.html qa-automation/zap/zap-report.html || true
+                      docker cp zap-baseline-scan:/zap/wrk/zap-report.md qa-automation/zap/zap-report.md || true
+                      docker rm -f zap-baseline-scan >/dev/null 2>&1 || true
+                      exit $scan_exit
+                    ''')
+
+                    // zap-baseline.py: 0 = clean, 1 = at least one FAIL, 2 = WARN(s) only, no
+                    // FAIL. Only block the pipeline on real FAILs -- WARN-level findings are
+                    // meant to be visible in the archived report for triage, not build-breaking.
+                    if (exitCode == 1) {
+                        error("ZAP baseline scan found FAIL-level issues -- see the archived qa-automation/zap report.")
+                    } else if (exitCode != 0 && exitCode != 2) {
+                        error("ZAP baseline scan failed unexpectedly (exit code ${exitCode}) -- see the archived qa-automation/zap report.")
+                    } else if (exitCode == 2) {
+                        echo "ZAP baseline scan found WARN-level issues only (exit code 2) -- not failing the build, see the archived qa-automation/zap report."
+                    }
+                }
             }
             post {
                 always {
